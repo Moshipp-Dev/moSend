@@ -145,7 +145,6 @@ export function AppSidebar() {
         </SidebarGroupLabel>
       </SidebarHeader>
       <SidebarContent>
-        {!currentIsClient && (
         <SidebarGroup>
           <SidebarGroupLabel>
             <span>General</span>
@@ -172,7 +171,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        )}
         {!currentIsClient && (
         <SidebarGroup>
           <SidebarGroupLabel>
