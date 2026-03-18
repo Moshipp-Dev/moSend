@@ -1,0 +1,101 @@
+name: usesend-local
+
+# Run from project root:
+#   docker compose -f docker/local/compose.yml --env-file .env up -d
+# The --env-file .env is required for ${VAR} interpolation in this file.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: usesend-db-local
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=usesend
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=usesend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usesend"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: usesend-redis-local
+    restart: unless-stopped
+    volumes:
+      - cache:/data
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+
+  minio:
+    image: minio/minio
+    container_name: usesend-storage-local
+    restart: unless-stopped
+    ports:
+      - "9001:9001"
+      - "9002:9002"
+    volumes:
+      - storage:/data
+    environment:
+      MINIO_ROOT_USER: usesend
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    entrypoint: sh
+    command: -c 'mkdir -p /data/usesend && minio server /data --console-address ":9001" --address ":9002"'
+
+  local-ses-sns:
+    image: usesend/local-ses-sns:latest
+    container_name: usesend-local-ses-sns
+    restart: unless-stopped
+    environment:
+      WEBHOOK_URL: http://usesend:3000/api/ses_callback
+
+  usesend:
+    image: usesend-local:latest
+    container_name: usesend
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    ports:
+      - "3010:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_URL=http://localhost:3010
+      - NEXTAUTH_URL_INTERNAL=http://usesend:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      # AWS real credentials
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      # GitHub OAuth
+      - GITHUB_ID=${GITHUB_ID}
+      - GITHUB_SECRET=${GITHUB_SECRET}
+      # SMTP / Email
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - FROM_EMAIL=${FROM_EMAIL}
+      - AUTH_EMAIL_RATE_LIMIT=10
+      - API_RATE_LIMIT=100
+      # Self-hosted mode (no cloud features/limits)
+      - NEXT_PUBLIC_IS_CLOUD=false
+      - REDIS_URL=redis://redis:6379
+      # Minio as S3-compatible storage (local file storage)
+      - S3_COMPATIBLE_ACCESS_KEY=usesend
+      - S3_COMPATIBLE_SECRET_KEY=${MINIO_PASSWORD}
+      - S3_COMPATIBLE_API_URL=http://minio:9002
+      - S3_COMPATIBLE_PUBLIC_URL=http://localhost:9002
+      - S3_COMPATIBLE_BUCKET=usesend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      local-ses-sns:
+        condition: service_started
+
+volumes:
+  database:
+  cache:
+  storage:

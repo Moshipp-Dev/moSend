@@ -18,10 +18,10 @@ export const DeleteCampaign: React.FC<{
     .object({
       confirmation: z
         .string()
-        .min(1, "Please type the campaign name to confirm"),
+        .min(1, "Por favor escribe el nombre de la campaña para confirmar"),
     })
     .refine((data) => data.confirmation === campaign.name, {
-      message: "Campaign name does not match",
+      message: "El nombre de la campaña no coincide",
       path: ["confirmation"],
     });
 
@@ -33,7 +33,7 @@ export const DeleteCampaign: React.FC<{
       {
         onSuccess: () => {
           utils.campaign.getCampaigns.invalidate();
-          toast.success(`Campaign deleted`);
+          toast.success(`Campaña eliminada`);
         },
       },
     );
@@ -41,7 +41,7 @@ export const DeleteCampaign: React.FC<{
 
   return (
     <DeleteResource
-      title="Delete Campaign"
+      title="Eliminar campaña"
       resourceName={campaign.name || ""}
       schema={campaignSchema}
       isLoading={deleteCampaignMutation.isPending}
@@ -51,7 +51,7 @@ export const DeleteCampaign: React.FC<{
           <Trash2 className="h-[18px] w-[18px] text-red/80" />
         </Button>
       }
-      confirmLabel="Delete Campaign"
+      confirmLabel="Eliminar campaña"
     />
   );
 };

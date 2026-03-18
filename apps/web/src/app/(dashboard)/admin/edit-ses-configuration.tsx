@@ -54,7 +54,7 @@ export default function EditSesConfiguration({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit SES configuration</DialogTitle>
+          <DialogTitle>Editar configuración SES</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <EditSesSettingsForm
@@ -96,7 +96,7 @@ export const EditSesSettingsForm: React.FC<SesSettingsProps> = ({
         onSuccess?.();
       },
       onError: (e) => {
-        toast.error("Failed to update", {
+        toast.error("Error al actualizar", {
           description: e.message,
         });
       },
@@ -114,7 +114,7 @@ export const EditSesSettingsForm: React.FC<SesSettingsProps> = ({
           name="sendRate"
           render={({ field, formState }) => (
             <FormItem>
-              <FormLabel>Send Rate</FormLabel>
+              <FormLabel>Tasa de envío</FormLabel>
               <FormControl>
                 <Input placeholder="1" className="w-full" {...field} />
               </FormControl>
@@ -122,7 +122,7 @@ export const EditSesSettingsForm: React.FC<SesSettingsProps> = ({
                 <FormMessage />
               ) : (
                 <FormDescription>
-                  The number of emails to send per second.
+                  El número de correos a enviar por segundo.
                 </FormDescription>
               )}
             </FormItem>
@@ -133,7 +133,7 @@ export const EditSesSettingsForm: React.FC<SesSettingsProps> = ({
           name="transactionalQuota"
           render={({ field, formState }) => (
             <FormItem>
-              <FormLabel>Transactional Quota</FormLabel>
+              <FormLabel>Cuota transaccional</FormLabel>
               <FormControl>
                 <Input placeholder="0" className="w-full" {...field} />
               </FormControl>
@@ -141,8 +141,8 @@ export const EditSesSettingsForm: React.FC<SesSettingsProps> = ({
                 <FormMessage />
               ) : (
                 <FormDescription>
-                  The percentage of the quota to be used for transactional
-                  emails (0-100%).
+                  El porcentaje de la cuota a utilizar para correos
+                  transaccionales (0-100%).
                 </FormDescription>
               )}
             </FormItem>
@@ -156,7 +156,7 @@ export const EditSesSettingsForm: React.FC<SesSettingsProps> = ({
           {updateSesSettings.isPending ? (
             <Spinner className="w-5 h-5" />
           ) : (
-            "Update"
+            "Actualizar"
           )}
         </Button>
       </form>

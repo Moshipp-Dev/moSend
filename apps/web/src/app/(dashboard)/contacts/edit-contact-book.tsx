@@ -28,7 +28,7 @@ import { toast } from "@usesend/ui/src/toaster";
 import type { ReactNode } from "react";
 
 const contactBookSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   variables: z.string().optional(),
 });
 
@@ -92,7 +92,7 @@ export const EditContactBook: React.FC<{
           } else {
             onOpenChange?.(false);
           }
-          toast.success("Contact book updated successfully");
+          toast.success("Libreta de contactos actualizada exitosamente");
         },
         onError: async (error) => {
           toast.error(error.message);
@@ -120,7 +120,7 @@ export const EditContactBook: React.FC<{
       ) : null}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Contact Book</DialogTitle>
+          <DialogTitle>Editar libreta de contactos</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <Form {...contactBookForm}>
@@ -133,9 +133,9 @@ export const EditContactBook: React.FC<{
                 name="name"
                 render={({ field, formState }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Nombre</FormLabel>
                     <FormControl>
-                      <Input placeholder="Contact Book Name" {...field} />
+                      <Input placeholder="Nombre de la libreta" {...field} />
                     </FormControl>
                     {formState.errors.name ? <FormMessage /> : null}
                   </FormItem>
@@ -154,8 +154,8 @@ export const EditContactBook: React.FC<{
                       />
                     </FormControl>
                     <FormDescription>
-                      Comma-separated variable names available in campaigns for
-                      this contact book.
+                      Nombres de variables separados por coma disponibles en
+                      campañas para esta libreta de contactos.
                     </FormDescription>
                   </FormItem>
                 )}
@@ -167,8 +167,8 @@ export const EditContactBook: React.FC<{
                   disabled={updateContactBookMutation.isPending}
                 >
                   {updateContactBookMutation.isPending
-                    ? "Updating..."
-                    : "Update"}
+                    ? "Actualizando..."
+                    : "Actualizar"}
                 </Button>
               </div>
             </form>

@@ -29,14 +29,14 @@ import { useRouter } from "next/navigation";
 import Spinner from "@usesend/ui/src/spinner";
 
 const campaignSchema = z.object({
-  name: z.string({ required_error: "Name is required" }).min(1, {
-    message: "Name is required",
+  name: z.string({ required_error: "El nombre es obligatorio" }).min(1, {
+    message: "El nombre es obligatorio",
   }),
-  from: z.string({ required_error: "From email is required" }).min(1, {
-    message: "From email is required",
+  from: z.string({ required_error: "El email de origen es obligatorio" }).min(1, {
+    message: "El email de origen es obligatorio",
   }),
-  subject: z.string({ required_error: "Subject is required" }).min(1, {
-    message: "Subject is required",
+  subject: z.string({ required_error: "El asunto es obligatorio" }).min(1, {
+    message: "El asunto es obligatorio",
   }),
 });
 
@@ -68,7 +68,7 @@ export default function CreateCampaign() {
         onSuccess: async (data) => {
           utils.campaign.getCampaigns.invalidate();
           router.push(`/campaigns/${data.id}/edit`);
-          toast.success("Campaign created successfully");
+          toast.success("Campaña creada exitosamente");
           setOpen(false);
         },
         onError: async (error) => {
@@ -86,12 +86,12 @@ export default function CreateCampaign() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-1" />
-          Create Campaign
+          Crear campaña
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create new campaign</DialogTitle>
+          <DialogTitle>Crear nueva campaña</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <Form {...campaignForm}>
@@ -104,9 +104,9 @@ export default function CreateCampaign() {
                 name="name"
                 render={({ field, formState }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Nombre</FormLabel>
                     <FormControl>
-                      <Input placeholder="Campaign Name" {...field} />
+                      <Input placeholder="Nombre de la campaña" {...field} />
                     </FormControl>
                     {formState.errors.name ? <FormMessage /> : null}
                   </FormItem>
@@ -117,7 +117,7 @@ export default function CreateCampaign() {
                 name="from"
                 render={({ field, formState }) => (
                   <FormItem>
-                    <FormLabel>From</FormLabel>
+                    <FormLabel>Remitente</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Friendly Name <from@example.com>"
@@ -133,16 +133,16 @@ export default function CreateCampaign() {
                 name="subject"
                 render={({ field, formState }) => (
                   <FormItem>
-                    <FormLabel>Subject</FormLabel>
+                    <FormLabel>Asunto</FormLabel>
                     <FormControl>
-                      <Input placeholder="Campaign Subject" {...field} />
+                      <Input placeholder="Asunto de la campaña" {...field} />
                     </FormControl>
                     {formState.errors.subject ? <FormMessage /> : null}
                   </FormItem>
                 )}
               />
               <p className="text-muted-foreground text-sm">
-                Don't worry, you can change it later.
+                No te preocupes, puedes cambiarlo más tarde.
               </p>
               <div className="flex justify-end">
                 <Button
@@ -153,7 +153,7 @@ export default function CreateCampaign() {
                   {createCampaignMutation.isPending ? (
                     <Spinner className="w-4 h-4" />
                   ) : (
-                    "Create"
+                    "Crear"
                   )}
                 </Button>
               </div>

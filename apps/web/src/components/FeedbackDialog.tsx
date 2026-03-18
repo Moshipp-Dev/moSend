@@ -28,7 +28,7 @@ import { z } from "zod";
 import { api } from "~/trpc/react";
 
 const FeedbackSchema = z.object({
-  message: z.string().trim().min(1, "Feedback is required").max(2000),
+  message: z.string().trim().min(1, "El comentario es obligatorio").max(2000),
 });
 
 export function FeedbackDialog({ trigger }: { trigger?: ReactNode }) {
@@ -44,7 +44,7 @@ export function FeedbackDialog({ trigger }: { trigger?: ReactNode }) {
 
   const feedbackMutation = api.feedback.send.useMutation({
     onSuccess: () => {
-      toast.success("Thanks for sharing your feedback!");
+      toast.success("¡Gracias por compartir tus comentarios!");
       form.reset();
       setOpen(false);
     },
@@ -93,10 +93,10 @@ export function FeedbackDialog({ trigger }: { trigger?: ReactNode }) {
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Send feedback</DialogTitle>
+          <DialogTitle>Enviar comentarios</DialogTitle>
           <DialogDescription>
-            Share any thoughts or issues. Your message goes straight to our
-            founders.
+            Comparte cualquier idea o problema. Tu mensaje llega directamente a
+            nuestros fundadores.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,7 +113,7 @@ export function FeedbackDialog({ trigger }: { trigger?: ReactNode }) {
                       minLength={1}
                       maxLength={2000}
                       onKeyDown={handleKeyDown}
-                      placeholder="Tell us what's on your mind"
+                      placeholder="Cuéntanos qué tienes en mente"
                       className="min-h-[160px]"
                     />
                   </FormControl>
@@ -129,13 +129,13 @@ export function FeedbackDialog({ trigger }: { trigger?: ReactNode }) {
                 onClick={() => handleOpenChange(false)}
                 disabled={feedbackMutation.isPending}
               >
-                Cancel
+                Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={!trimmedMessage || feedbackMutation.isPending}
               >
-                {feedbackMutation.isPending ? "Sending..." : "Send feedback"}
+                {feedbackMutation.isPending ? "Enviando..." : "Enviar comentarios"}
                 {!feedbackMutation.isPending ? (
                   <>
                     <span
@@ -150,7 +150,7 @@ export function FeedbackDialog({ trigger }: { trigger?: ReactNode }) {
                       </kbd>
                     </span>
                     <span className="sr-only">
-                      {isMac ? "Command" : "Control"} plus Enter
+                      {isMac ? "Command" : "Control"} más Enter
                     </span>
                   </>
                 ) : null}

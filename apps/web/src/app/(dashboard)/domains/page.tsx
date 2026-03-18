@@ -8,7 +8,7 @@ export default function DomainsPage() {
   return (
     <div>
       <div className="flex justify-between items-center">
-        <H1>Domains</H1>
+        <H1>Dominios</H1>
         <AddDomain />
       </div>
       <DomainsList />

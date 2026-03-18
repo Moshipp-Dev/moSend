@@ -15,10 +15,10 @@ export const DeleteDomain: React.FC<{ domain: Domain }> = ({ domain }) => {
 
   const domainSchema = z
     .object({
-      confirmation: z.string().min(1, "Please type the domain name to confirm"),
+      confirmation: z.string().min(1, "Por favor escribe el nombre del dominio para confirmar"),
     })
     .refine((data) => data.confirmation === domain.name, {
-      message: "Domain name does not match",
+      message: "El nombre del dominio no coincide",
       path: ["confirmation"],
     });
 
@@ -30,7 +30,7 @@ export const DeleteDomain: React.FC<{ domain: Domain }> = ({ domain }) => {
       {
         onSuccess: () => {
           utils.domain.domains.invalidate();
-          toast.success(`Domain ${domain.name} deleted`);
+          toast.success(`Dominio ${domain.name} eliminado`);
           router.replace("/domains");
         },
       },
@@ -39,17 +39,17 @@ export const DeleteDomain: React.FC<{ domain: Domain }> = ({ domain }) => {
 
   return (
     <DeleteResource
-      title="Delete domain"
+      title="Eliminar dominio"
       resourceName={domain.name}
       schema={domainSchema}
       isLoading={deleteDomainMutation.isPending}
       onConfirm={onDomainDelete}
       trigger={
         <Button variant="destructive" className="w-[150px]" size="sm">
-          Delete domain
+          Eliminar dominio
         </Button>
       }
-      confirmLabel="Delete domain"
+      confirmLabel="Eliminar dominio"
     />
   );
 };

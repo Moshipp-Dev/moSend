@@ -29,8 +29,8 @@ import { toast } from "@usesend/ui/src/toaster";
 import type { ReactNode } from "react";
 
 const contactsSchema = z.object({
-  contacts: z.string({ required_error: "Contacts are required" }).min(1, {
-    message: "Contacts are required",
+  contacts: z.string({ required_error: "Los contactos son obligatorios" }).min(1, {
+    message: "Los contactos son obligatorios",
   }),
 });
 
@@ -62,7 +62,7 @@ export default function AddContact({
     (controlledOpen === undefined ? (
       <Button>
         <Plus className="h-4 w-4 mr-1" />
-        Add Contacts
+        Agregar contactos
       </Button>
     ) : null);
 
@@ -84,7 +84,7 @@ export default function AddContact({
           } else {
             onOpenChange?.(false);
           }
-          toast.success("Contacts queued for processing");
+          toast.success("Contactos en cola de procesamiento");
         },
         onError: async (error) => {
           toast.error(error.message);
@@ -112,7 +112,7 @@ export default function AddContact({
       ) : null}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add new contacts</DialogTitle>
+          <DialogTitle>Agregar nuevos contactos</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <Form {...contactsForm}>
@@ -125,7 +125,7 @@ export default function AddContact({
                 name="contacts"
                 render={({ field, formState }) => (
                   <FormItem>
-                    <FormLabel>Contacts</FormLabel>
+                    <FormLabel>Contactos</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="email1@example.com, email2@example.com"
@@ -151,8 +151,8 @@ export default function AddContact({
                       <FormMessage />
                     ) : (
                       <FormDescription>
-                        Enter comma-separated email addresses. Press Cmd/Ctrl +
-                        Enter to submit.
+                        Ingresa direcciones de email separadas por coma. Presiona Cmd/Ctrl +
+                        Enter para enviar.
                       </FormDescription>
                     )}
                   </FormItem>
@@ -164,7 +164,7 @@ export default function AddContact({
                   type="submit"
                   disabled={addContactsMutation.isPending}
                 >
-                  {addContactsMutation.isPending ? "Adding..." : "Add"}
+                  {addContactsMutation.isPending ? "Agregando..." : "Agregar"}
                 </Button>
               </div>
             </form>

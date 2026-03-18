@@ -29,26 +29,26 @@ export default function SuppressionStats() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
       <div className="flex flex-col gap-2 rounded-lg border p-4 shadow">
-        <p className="font-semibold mb-1">Total Suppressions</p>
+        <p className="font-semibold mb-1">Total de supresiones</p>
         <div className="text-2xl font-mono">{totalSuppressions}</div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border p-4 shadow">
-        <p className="font-semibold mb-1">Hard Bounces</p>
+        <p className="font-semibold mb-1">Rebotes duros</p>
         <div className="text-2xl font-mono text-red">
           {stats?.HARD_BOUNCE ?? 0}
         </div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border p-4 shadow">
-        <p className="font-semibold mb-1">Complaints</p>
+        <p className="font-semibold mb-1">Quejas</p>
         <div className="text-2xl font-mono text-yellow">
           {stats?.COMPLAINT ?? 0}
         </div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border p-4 shadow">
-        <p className="font-semibold mb-1">Manual</p>
+        <p className="font-semibold mb-1">Manuales</p>
         <div className="text-2xl font-mono text-blue">{stats?.MANUAL ?? 0}</div>
       </div>
     </div>

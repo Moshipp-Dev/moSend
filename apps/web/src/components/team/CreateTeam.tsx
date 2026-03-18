@@ -22,7 +22,7 @@ import JoinTeam from "./JoinTeam";
 
 const FormSchema = z.object({
   name: z.string().min(2, {
-    message: "Team name must be at least 2 characters.",
+    message: "El nombre del equipo debe tener al menos 2 caracteres.",
   }),
 });
 
@@ -56,7 +56,7 @@ export default function CreateTeam() {
       <div className=" w-[400px] flex flex-col gap-8">
         <JoinTeam showCreateTeam />
         <div>
-          <h1 className=" font-semibold text-center">Create Team</h1>
+          <h1 className=" font-semibold text-center">Crear equipo</h1>
         </div>
         <Form {...form}>
           <form
@@ -70,7 +70,7 @@ export default function CreateTeam() {
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder="Team name"
+                      placeholder="Nombre del equipo"
                       className="w-full"
                       {...field}
                     />
@@ -79,7 +79,7 @@ export default function CreateTeam() {
                     <FormMessage />
                   ) : (
                     <FormDescription>
-                      Request admin to join existing team
+                      Solicita al administrador unirte a un equipo existente
                     </FormDescription>
                   )}
                 </FormItem>
@@ -89,7 +89,7 @@ export default function CreateTeam() {
               {createTeam.isPending ? (
                 <Spinner className="w-5 h-5" />
               ) : (
-                "Create"
+                "Crear"
               )}
             </Button>
           </form>

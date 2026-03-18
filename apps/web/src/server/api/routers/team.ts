@@ -31,8 +31,9 @@ export const teamRouter = createTRPCRouter({
     .input(
       z.object({
         email: z.string(),
-        role: z.enum(["MEMBER", "ADMIN"]),
+        role: z.enum(["MEMBER", "ADMIN", "CLIENT"]),
         sendEmail: z.boolean().default(true),
+        domainIds: z.array(z.number()).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -42,6 +43,7 @@ export const teamRouter = createTRPCRouter({
         input.role,
         ctx.team.name,
         input.sendEmail,
+        input.domainIds,
       );
     }),
 
@@ -49,7 +51,8 @@ export const teamRouter = createTRPCRouter({
     .input(
       z.object({
         userId: z.string(),
-        role: z.enum(["MEMBER", "ADMIN"]),
+        role: z.enum(["MEMBER", "ADMIN", "CLIENT"]),
+        domainIds: z.array(z.number()).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -57,6 +60,7 @@ export const teamRouter = createTRPCRouter({
         ctx.team.id,
         input.userId,
         input.role,
+        input.domainIds,
       );
     }),
 

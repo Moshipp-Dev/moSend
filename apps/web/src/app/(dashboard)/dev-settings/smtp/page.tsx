@@ -20,41 +20,41 @@ export default function ExampleCard() {
       <CardHeader>
         <CardTitle>SMTP</CardTitle>
         <CardDescription>
-          Send emails using SMTP instead of the REST API. See documentation for
-          more information.
+          Envía correos usando SMTP en lugar de la API REST. Consulta la documentación para
+          más información.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           <div>
-            <strong>Host:</strong>
+            <strong>Servidor:</strong>
             <TextWithCopyButton
               className="ml-1 border bg-primary/10  rounded-lg mt-1 p-2 w-full "
               value={host}
             ></TextWithCopyButton>
           </div>
           <div>
-            <strong>Port:</strong>
+            <strong>Puerto:</strong>
             <TextWithCopyButton
               className="ml-1 rounded-lg mt-1 p-2 w-full bg-primary/10 font-mono"
               value={"465"}
             ></TextWithCopyButton>
             <p className="ml-1 mt-1 text-zinc-500 text-sm ">
-              For encrypted/TLS connections use{" "}
+              Para conexiones cifradas/TLS usa{" "}
               <strong className="font-mono">2465</strong>,{" "}
               <strong className="font-mono">587</strong> or{" "}
               <strong className="font-mono">2587</strong>
             </p>
           </div>
           <div>
-            <strong>User:</strong>
+            <strong>Usuario:</strong>
             <TextWithCopyButton
               className="ml-1 rounded-lg mt-1 p-2 w-full bg-primary/10"
               value={user}
             ></TextWithCopyButton>
           </div>
           <div>
-            <strong>Password:</strong>
+            <strong>Contraseña:</strong>
             <TextWithCopyButton
               className="ml-1 rounded-lg mt-1 p-2 w-full bg-primary/10"
               value={"YOUR_API_KEY"}

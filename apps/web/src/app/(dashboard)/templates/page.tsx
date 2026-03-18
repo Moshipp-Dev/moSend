@@ -8,7 +8,7 @@ export default function TemplatesPage() {
   return (
     <div>
       <div className="flex justify-between items-center">
-        <H1>Templates</H1>
+        <H1>Plantillas</H1>
         <CreateTemplate />
       </div>
       <TemplateList />

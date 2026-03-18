@@ -162,6 +162,18 @@ export const teamAdminProcedure = teamProcedure.use(async ({ ctx, next }) => {
   return next();
 });
 
+// Blocks CLIENT role — use for operations that MEMBER and ADMIN can do but CLIENT cannot
+export const teamMemberProcedure = teamProcedure.use(async ({ ctx, next }) => {
+  if (ctx.teamUser.role === "CLIENT") {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Clients are not authorized to perform this action",
+    });
+  }
+
+  return next();
+});
+
 export const domainProcedure = teamProcedure
   .input(z.object({ id: z.number() }))
   .use(async ({ ctx, next, input }) => {
@@ -170,6 +182,15 @@ export const domainProcedure = teamProcedure
     });
     if (!domain) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Domain not found" });
+    }
+
+    if (ctx.teamUser.role === "CLIENT") {
+      const access = await db.clientDomainAccess.findUnique({
+        where: { userId_domainId: { userId: ctx.teamUser.userId, domainId: domain.id } },
+      });
+      if (!access) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Access denied to this domain" });
+      }
     }
 
     return next({ ctx: { ...ctx, domain } });

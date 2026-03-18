@@ -63,7 +63,7 @@ function WebhookDetailActions({
       <PopoverTrigger asChild>
         <Button variant="default" className="gap-1">
           <MoreVertical className="h-4 -ml-2" />
-          Actions
+          Acciones
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-52 rounded-xl p-1" align="end">
@@ -79,7 +79,7 @@ function WebhookDetailActions({
             disabled={isTestPending}
           >
             <TestTube className="mr-2 h-4 w-4" />
-            Test webhook
+            Probar webhook
           </Button>
           <Button
             variant="ghost"
@@ -91,7 +91,7 @@ function WebhookDetailActions({
             }}
           >
             <Edit3 className="mr-2 h-4 w-4" />
-            Edit
+            Editar
           </Button>
           <Button
             variant="ghost"
@@ -106,12 +106,12 @@ function WebhookDetailActions({
             {canActivate ? (
               <>
                 <Play className="mr-2 h-4 w-4" />
-                {isAutoDisabled ? "Re-enable" : "Resume"}
+                {isAutoDisabled ? "Reactivar" : "Reanudar"}
               </>
             ) : (
               <>
                 <Pause className="mr-2 h-4 w-4" />
-                Pause
+                Pausar
               </>
             )}
           </Button>
@@ -126,7 +126,7 @@ function WebhookDetailActions({
             disabled={isRotating}
           >
             <Key className="mr-2 h-4 w-4" />
-            Rotate secret
+            Rotar secreto
           </Button>
           <DeleteWebhook webhook={webhook} />
         </div>
@@ -168,7 +168,7 @@ export default function WebhookDetailPage({
       {
         onSuccess: async () => {
           await utils.webhook.listCalls.invalidate();
-          toast.success("Test webhook enqueued");
+          toast.success("Webhook de prueba en cola");
         },
         onError: (error) => {
           toast.error(error.message);
@@ -185,7 +185,7 @@ export default function WebhookDetailPage({
         onSuccess: async () => {
           await utils.webhook.getById.invalidate();
           toast.success(
-            `Webhook ${newStatus === "ACTIVE" ? "resumed" : "paused"}`,
+            `Webhook ${newStatus === "ACTIVE" ? "reanudado" : "pausado"}`,
           );
         },
         onError: (error) => {
@@ -201,7 +201,7 @@ export default function WebhookDetailPage({
       {
         onSuccess: async () => {
           await utils.webhook.getById.invalidate();
-          toast.success("Secret rotated successfully");
+          toast.success("Secreto rotado exitosamente");
         },
         onError: (error) => {
           toast.error(error.message);
@@ -213,7 +213,7 @@ export default function WebhookDetailPage({
   if (webhookQuery.isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">Loading webhook...</p>
+        <p className="text-muted-foreground">Cargando webhook...</p>
       </div>
     );
   }
@@ -221,7 +221,7 @@ export default function WebhookDetailPage({
   if (!webhook) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">Webhook not found</p>
+        <p className="text-muted-foreground">Webhook no encontrado</p>
       </div>
     );
   }
@@ -275,7 +275,7 @@ export default function WebhookDetailPage({
             <WebhookCallDetails callId={selectedCallId} />
           ) : (
             <div className="h-full flex items-center justify-center border rounded-xl bg-muted/10 border-dashed text-muted-foreground">
-              Select a webhook call to view details
+              Selecciona una llamada de webhook para ver los detalles
             </div>
           )}
         </div>

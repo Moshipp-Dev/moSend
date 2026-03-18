@@ -34,9 +34,9 @@ import { isCloud } from "~/utils/common";
 
 const searchSchema = z.object({
   query: z
-    .string({ required_error: "Enter a team ID, name, domain, member email, or subscription ID" })
+    .string({ required_error: "Ingresa un ID de equipo, nombre, dominio, correo de miembro o ID de suscripción" })
     .trim()
-    .min(1, "Enter a team ID, name, domain, member email, or subscription ID"),
+    .min(1, "Ingresa un ID de equipo, nombre, dominio, correo de miembro o ID de suscripción"),
 });
 
 type SearchInput = z.infer<typeof searchSchema>;
@@ -86,7 +86,7 @@ export default function AdminTeamsPage() {
   if (!isCloud()) {
     return (
       <div className="rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
-        Team administration tools are available only in the cloud deployment.
+        Las herramientas de administración de equipos están disponibles solo en el despliegue en la nube.
       </div>
     );
   }
@@ -96,13 +96,13 @@ export default function AdminTeamsPage() {
       setHasSearched(true);
       if (!data) {
         setTeam(null);
-        toast.info("No team found for that query");
+        toast.info("No se encontró ningún equipo para esa búsqueda");
         return;
       }
       setTeam(data);
     },
     onError: (error) => {
-      toast.error(error.message ?? "Unable to search for team");
+      toast.error(error.message ?? "No se pudo buscar el equipo");
     },
   });
 
@@ -115,10 +115,10 @@ export default function AdminTeamsPage() {
         isBlocked: updated.isBlocked,
         plan: updated.plan,
       });
-      toast.success("Team settings updated");
+      toast.success("Configuración del equipo actualizada");
     },
     onError: (error) => {
-      toast.error(error.message ?? "Unable to update team settings");
+      toast.error(error.message ?? "No se pudo actualizar la configuración del equipo");
     },
   });
 
@@ -147,10 +147,10 @@ export default function AdminTeamsPage() {
               name="query"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Team lookup</FormLabel>
+                  <FormLabel>Buscar equipo</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Team ID, team name, domain, member email, or subscription ID"
+                      placeholder="ID de equipo, nombre, dominio, correo de miembro o ID de suscripción"
                       autoComplete="off"
                       {...field}
                       value={field.value}
@@ -163,10 +163,10 @@ export default function AdminTeamsPage() {
             <Button type="submit" disabled={findTeam.isPending}>
               {findTeam.isPending ? (
                 <>
-                  <Spinner className="mr-2 h-4 w-4" /> Searching...
+                  <Spinner className="mr-2 h-4 w-4" /> Buscando...
                 </>
               ) : (
-                "Lookup team"
+                "Buscar equipo"
               )}
             </Button>
           </form>
@@ -175,7 +175,7 @@ export default function AdminTeamsPage() {
 
       {findTeam.isPending ? null : hasSearched && !team ? (
         <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-          No team matched that query. Try another search.
+          Ningún equipo coincide con esa búsqueda. Intenta de nuevo.
         </div>
       ) : null}
 
@@ -183,7 +183,7 @@ export default function AdminTeamsPage() {
         <div className="space-y-6 rounded-lg border p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-muted-foreground">Team</p>
+              <p className="text-sm text-muted-foreground">Equipo</p>
               <p className="text-xl font-semibold">{team.name}</p>
               <p className="text-xs text-muted-foreground">
                 ID #{team.id} • Created {formatDistanceToNow(new Date(team.createdAt), { addSuffix: true })}
@@ -192,14 +192,14 @@ export default function AdminTeamsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">Plan: {team.plan}</Badge>
               <Badge variant={team.isBlocked ? "destructive" : "outline"}>
-                {team.isBlocked ? "Blocked" : "Active"}
+                {team.isBlocked ? "Bloqueado" : "Activo"}
               </Badge>
             </div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Members</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Miembros</h3>
               <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
                 {team.teamUsers.length ? (
                   team.teamUsers.map((member) => (
@@ -215,12 +215,12 @@ export default function AdminTeamsPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground">No members found.</p>
+                  <p className="text-xs text-muted-foreground">No se encontraron miembros.</p>
                 )}
               </div>
             </div>
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Domains</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Dominios</h3>
               <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
                 {team.domains.length ? (
                   team.domains.map((domain) => (
@@ -231,13 +231,13 @@ export default function AdminTeamsPage() {
                       <span>{domain.name}</span>
                       <Badge variant={domain.status === "SUCCESS" ? "outline" : "secondary"}>
                         {domain.status === "SUCCESS"
-                          ? "Verified"
+                          ? "Verificado"
                           : domain.status.toLowerCase()}
                       </Badge>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground">No domains connected.</p>
+                  <p className="text-xs text-muted-foreground">No hay dominios conectados.</p>
                 )}
               </div>
             </div>
@@ -245,7 +245,7 @@ export default function AdminTeamsPage() {
 
           <div className="rounded-lg border bg-muted/10 p-4">
             <p className="text-sm text-muted-foreground">
-              Billing contact: {team.billingEmail ?? "Not set"}
+              Contacto de facturación: {team.billingEmail ?? "No definido"}
             </p>
           </div>
 
@@ -257,7 +257,7 @@ export default function AdminTeamsPage() {
                   name="apiRateLimit"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>API rate limit</FormLabel>
+                      <FormLabel>Límite de tasa API</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -280,7 +280,7 @@ export default function AdminTeamsPage() {
                   name="dailyEmailLimit"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Daily email limit</FormLabel>
+                      <FormLabel>Límite diario de correos</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -311,7 +311,7 @@ export default function AdminTeamsPage() {
                           disabled={updateTeam.isPending}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select plan" />
+                            <SelectValue placeholder="Seleccionar plan" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="FREE">Free</SelectItem>
@@ -328,7 +328,7 @@ export default function AdminTeamsPage() {
                   name="isBlocked"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Blocked</FormLabel>
+                      <FormLabel>Bloqueado</FormLabel>
                       <FormControl>
                         <div className="flex items-center gap-3 rounded-md border px-3 py-2">
                           <Switch
@@ -337,7 +337,7 @@ export default function AdminTeamsPage() {
                             disabled={updateTeam.isPending}
                           />
                           <span className="text-sm text-muted-foreground">
-                            {field.value ? "Team is blocked" : "Team is active"}
+                            {field.value ? "El equipo está bloqueado" : "El equipo está activo"}
                           </span>
                         </div>
                       </FormControl>
@@ -349,10 +349,10 @@ export default function AdminTeamsPage() {
                   <Button type="submit" disabled={updateTeam.isPending}>
                     {updateTeam.isPending ? (
                       <>
-                        <Spinner className="mr-2 h-4 w-4" /> Saving...
+                        <Spinner className="mr-2 h-4 w-4" /> Guardando...
                       </>
                     ) : (
-                      "Update team"
+                      "Actualizar equipo"
                     )}
                   </Button>
                 </div>

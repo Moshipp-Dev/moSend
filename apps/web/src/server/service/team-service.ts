@@ -135,7 +135,14 @@ export class TeamService {
         teamId,
       },
       include: {
-        user: true,
+        user: {
+          include: {
+            clientDomainAccesses: {
+              where: { teamId },
+              include: { domain: { select: { id: true, name: true } } },
+            },
+          },
+        },
       },
     });
   }
@@ -151,9 +158,10 @@ export class TeamService {
   static async createTeamInvite(
     teamId: number,
     email: string,
-    role: "MEMBER" | "ADMIN",
+    role: "MEMBER" | "ADMIN" | "CLIENT",
     teamName: string,
     sendEmail: boolean = true,
+    domainIds?: number[],
   ): Promise<TeamInvite> {
     if (!email) {
       throw new TRPCError({
@@ -191,6 +199,7 @@ export class TeamService {
         teamId,
         email,
         role,
+        domainIds: role === "CLIENT" ? (domainIds ?? []) : [],
       },
     });
 
@@ -206,7 +215,8 @@ export class TeamService {
   static async updateTeamUserRole(
     teamId: number,
     userId: string,
-    role: "MEMBER" | "ADMIN",
+    role: "MEMBER" | "ADMIN" | "CLIENT",
+    domainIds?: number[],
   ) {
     const teamUser = await db.teamUser.findFirst({
       where: {
@@ -248,6 +258,29 @@ export class TeamService {
         role,
       },
     });
+
+    // Sync ClientDomainAccess when assigning CLIENT role
+    if (role === "CLIENT") {
+      await db.clientDomainAccess.deleteMany({
+        where: { userId: Number(userId), teamId },
+      });
+      if (domainIds && domainIds.length > 0) {
+        await db.clientDomainAccess.createMany({
+          data: domainIds.map((domainId) => ({
+            userId: Number(userId),
+            domainId,
+            teamId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    } else {
+      // Removing CLIENT role: clean up any existing access
+      await db.clientDomainAccess.deleteMany({
+        where: { userId: Number(userId), teamId },
+      });
+    }
+
     // Role updates might influence permissions; refresh cache to be safe
     await TeamService.invalidateTeamCache(teamId);
     return updated;

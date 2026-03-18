@@ -33,7 +33,7 @@ export const DuplicateTemplate: React.FC<{
         onSuccess: () => {
           utils.template.getTemplates.invalidate();
           setOpen(false);
-          toast.success(`Template duplicated`);
+          toast.success(`Plantilla duplicada`);
         },
       },
     );
@@ -51,9 +51,9 @@ export const DuplicateTemplate: React.FC<{
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Duplicate Template</DialogTitle>
+          <DialogTitle>Duplicar plantilla</DialogTitle>
           <DialogDescription>
-            Are you sure you want to duplicate{" "}
+            ¿Estás seguro de que deseas duplicar{" "}
             <span className="font-semibold text-foreground">
               {template.name}
             </span>
@@ -68,8 +68,8 @@ export const DuplicateTemplate: React.FC<{
               disabled={duplicateTemplateMutation.isPending}
             >
               {duplicateTemplateMutation.isPending
-                ? "Duplicating..."
-                : "Duplicate"}
+                ? "Duplicando..."
+                : "Duplicar"}
             </Button>
           </div>
         </div>

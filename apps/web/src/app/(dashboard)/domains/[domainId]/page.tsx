@@ -66,7 +66,7 @@ export default function DomainItemPage({
   return (
     <div>
       {domainQuery.isLoading ? (
-        <p>Loading...</p>
+        <p>Cargando...</p>
       ) : (
         <div className="flex flex-col gap-8">
           <div className="flex justify-between items-center">
@@ -79,7 +79,7 @@ export default function DomainItemPage({
                   <BreadcrumbItem>
                     <BreadcrumbLink asChild>
                       <Link href="/domains" className="text-lg">
-                        Domains
+                        Dominios
                       </Link>
                     </BreadcrumbLink>
                   </BreadcrumbItem>
@@ -102,10 +102,10 @@ export default function DomainItemPage({
               <div>
                 <Button variant="outline" onClick={handleVerify}>
                   {domainQuery.data?.isVerifying
-                    ? "Verifying..."
+                    ? "Verificando..."
                     : domainQuery.data?.status === DomainStatus.SUCCESS
-                      ? "Verify again"
-                      : "Verify domain"}
+                      ? "Verificar de nuevo"
+                      : "Verificar dominio"}
                 </Button>
               </div>
               {domainQuery.data ? (
@@ -115,16 +115,16 @@ export default function DomainItemPage({
           </div>
 
           <div className=" border rounded-lg p-4 shadow">
-            <p className="font-semibold text-xl">DNS records</p>
+            <p className="font-semibold text-xl">Registros DNS</p>
             <Table className="mt-2">
               <TableHeader className="">
                 <TableRow className="">
-                  <TableHead className="rounded-tl-xl">Type</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Content</TableHead>
+                  <TableHead className="rounded-tl-xl">Tipo</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Contenido</TableHead>
                   <TableHead className="">TTL</TableHead>
-                  <TableHead className="">Priority</TableHead>
-                  <TableHead className="rounded-tr-xl">Status</TableHead>
+                  <TableHead className="">Prioridad</TableHead>
+                  <TableHead className="rounded-tr-xl">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -141,7 +141,7 @@ export default function DomainItemPage({
                         <div className="flex gap-2 items-center">
                           {record.recommended ? (
                             <span className="text-sm text-muted-foreground">
-                              (recommended)
+                              (recomendado)
                             </span>
                           ) : null}
                           <TextWithCopyButton value={record.name} />
@@ -189,7 +189,7 @@ const DomainSettings: React.FC<{ domain: DomainResponse }> = ({ domain }) => {
       {
         onSuccess: () => {
           utils.domain.invalidate();
-          toast.success("Click tracking updated");
+          toast.success("Seguimiento de clics actualizado");
         },
       },
     );
@@ -202,18 +202,18 @@ const DomainSettings: React.FC<{ domain: DomainResponse }> = ({ domain }) => {
       {
         onSuccess: () => {
           utils.domain.invalidate();
-          toast.success("Open tracking updated");
+          toast.success("Seguimiento de apertura actualizado");
         },
       },
     );
   }
   return (
     <div className="rounded-lg shadow p-4 border flex flex-col gap-6">
-      <p className="font-semibold text-xl">Settings</p>
+      <p className="font-semibold text-xl">Configuración</p>
       <div className="flex flex-col gap-1">
-        <div className="font-semibold">Click tracking</div>
+        <div className="font-semibold">Seguimiento de clics</div>
         <p className=" text-muted-foreground text-sm">
-          Track any links in your emails content.{" "}
+          Rastrea cualquier enlace en el contenido de tus correos.{" "}
         </p>
         <Switch
           checked={clickTracking}
@@ -223,11 +223,11 @@ const DomainSettings: React.FC<{ domain: DomainResponse }> = ({ domain }) => {
       </div>
 
       <div className="flex flex-col gap-1">
-        <div className="font-semibold">Open tracking</div>
+        <div className="font-semibold">Seguimiento de apertura</div>
         <p className=" text-muted-foreground text-sm">
-          Unsend adds a tracking pixel to every email you send. This allows you
-          to see how many people open your emails. This will affect the delivery
-          rate of your emails.
+          Unsend agrega un píxel de seguimiento a cada correo que envías. Esto
+          te permite ver cuántas personas abren tus correos. Esto puede afectar
+          la tasa de entrega de tus correos.
         </p>
         <Switch
           checked={openTracking}
@@ -237,10 +237,10 @@ const DomainSettings: React.FC<{ domain: DomainResponse }> = ({ domain }) => {
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="font-semibold text-lg text-destructive">Danger</p>
+        <p className="font-semibold text-lg text-destructive">Peligro</p>
 
         <p className="text-destructive text-sm font-semibold">
-          Deleting a domain will stop sending emails with this domain.
+          Eliminar un dominio detendrá el envío de correos con este dominio.
         </p>
         <DeleteDomain domain={domain} />
       </div>

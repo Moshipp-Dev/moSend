@@ -67,11 +67,11 @@ export default function EmailChart({ days, domain }: EmailChartProps) {
   const currentColors = useColors();
 
   const metricMeta: Record<StackKey, { label: string; color: string }> = {
-    delivered: { label: "Delivered", color: currentColors.delivered },
-    bounced: { label: "Bounced", color: currentColors.bounced },
-    complained: { label: "Complained", color: currentColors.complained },
-    opened: { label: "Opened", color: currentColors.opened },
-    clicked: { label: "Clicked", color: currentColors.clicked },
+    delivered: { label: "Entregados", color: currentColors.delivered },
+    bounced: { label: "Rebotados", color: currentColors.bounced },
+    complained: { label: "Reclamados", color: currentColors.complained },
+    opened: { label: "Abiertos", color: currentColors.opened },
+    clicked: { label: "Clics", color: currentColors.clicked },
   };
 
   const visibleMetrics: StackKey[] =

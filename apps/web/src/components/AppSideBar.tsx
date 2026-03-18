@@ -39,6 +39,7 @@ import { MiniThemeSwitcher, ThemeSwitcher } from "./theme/ThemeSwitcher";
 import { useSession } from "next-auth/react";
 import { isCloud, isSelfHosted } from "~/utils/common";
 import { usePathname } from "next/navigation";
+import { useTeam } from "~/providers/team-context";
 import { Badge } from "@usesend/ui/src/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@usesend/ui/src/avatar";
 import Image from "next/image";
@@ -57,22 +58,22 @@ import { env } from "~/env";
 // General items
 const generalItems = [
   {
-    title: "Analytics",
+    title: "Analíticas",
     url: "/dashboard",
     icon: BarChart3,
   },
   {
-    title: "Emails",
+    title: "Correos",
     url: "/emails",
     icon: Mail,
   },
   {
-    title: "Templates",
+    title: "Plantillas",
     url: "/templates",
     icon: LayoutTemplate,
   },
   {
-    title: "Suppressions",
+    title: "Supresiones",
     url: "/suppressions",
     icon: UserRoundX,
   },
@@ -81,12 +82,12 @@ const generalItems = [
 // Marketing items
 const marketingItems = [
   {
-    title: "Contacts",
+    title: "Contactos",
     url: "/contacts",
     icon: BookUser,
   },
   {
-    title: "Campaigns",
+    title: "Campañas",
     url: "/campaigns",
     icon: Volume2,
   },
@@ -95,7 +96,7 @@ const marketingItems = [
 // Settings items
 const settingsItems = [
   {
-    title: "Domains",
+    title: "Dominios",
     url: "/domains",
     icon: Globe,
   },
@@ -105,18 +106,18 @@ const settingsItems = [
     icon: Webhook,
   },
   {
-    title: "Developer settings",
+    title: "Configuración de desarrollador",
     url: "/dev-settings",
     icon: Code,
   },
   {
-    title: "Settings",
+    title: "Configuración",
     url: "/settings",
     icon: Cog,
   },
   // Admin item shows if user is admin OR if it's self-hosted
   {
-    title: "Admin",
+    title: "Administración",
     url: "/admin",
     icon: Server,
     isAdmin: true,
@@ -126,6 +127,7 @@ const settingsItems = [
 
 export function AppSidebar() {
   const { data: session } = useSession();
+  const { currentIsClient } = useTeam();
   const showFeedback = isCloud();
 
   const pathname = usePathname();
@@ -143,6 +145,7 @@ export function AppSidebar() {
         </SidebarGroupLabel>
       </SidebarHeader>
       <SidebarContent>
+        {!currentIsClient && (
         <SidebarGroup>
           <SidebarGroupLabel>
             <span>General</span>
@@ -169,6 +172,8 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
+        {!currentIsClient && (
         <SidebarGroup>
           <SidebarGroupLabel>
             <span>Marketing</span>
@@ -196,6 +201,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
         <SidebarGroup>
           <SidebarGroupLabel>
             <span>Settings</span>
@@ -204,6 +210,11 @@ export function AppSidebar() {
             <SidebarMenu>
               {settingsItems.map((item) => {
                 const isActive = pathname?.startsWith(item.url);
+
+                // Hide webhooks, developer settings and admin from CLIENT users
+                if (currentIsClient && (item.url === "/webhooks" || item.url === "/dev-settings")) {
+                  return null;
+                }
 
                 // Special case for Admin item: show if user is admin OR if it's self-hosted
                 if (item.isAdmin && item.isSelfHosted) {
@@ -246,19 +257,19 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <FeedbackDialog
                   trigger={
-                    <SidebarMenuButton tooltip="Feedback">
+                    <SidebarMenuButton tooltip="Comentarios">
                       <MessageSquare />
-                      <span>Feedback</span>
+                      <span>Comentarios</span>
                     </SidebarMenuButton>
                   }
                 />
               </SidebarMenuItem>
             ) : null}
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Docs">
+              <SidebarMenuButton asChild tooltip="Documentación">
                 <Link href="https://docs.usesend.com" target="_blank">
                   <BookOpenText />
-                  <span>Docs</span>
+                  <span>Documentación</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -355,13 +366,13 @@ export function NavUser({
               <DropdownMenuItem asChild>
                 <Link href="/settings/team">
                   <UsersIcon />
-                  Team
+                  Equipo
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/settings">
                   <GaugeIcon />
-                  Usage
+                  Uso
                 </Link>
               </DropdownMenuItem>
               <div className="px-2 py-0.5">
@@ -371,7 +382,7 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut()}>
               <LogOutIcon />
-              Log out
+              Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -403,7 +414,7 @@ function VersionInfo() {
   return (
     <div className="px-2 py-2 text-xs text-muted-foreground">
       <div className="flex items-center justify-between">
-        <span>Version</span>
+        <span>Versión</span>
         <span className="font-mono">{displayVersion}</span>
       </div>
     </div>

@@ -93,11 +93,11 @@ export default function EmailsList() {
   };
 
   const handleDomain = (val: string) => {
-    setDomain(val === "All Domains" ? null : val);
+    setDomain(val === "Todos los dominios" ? null : val);
   };
 
   const handleApiKey = (val: string) => {
-    setApiKey(val === "All API Keys" ? null : val);
+    setApiKey(val === "Todas las API Keys" ? null : val);
   };
 
   const handleSheetChange = (isOpen: boolean) => {
@@ -123,13 +123,13 @@ export default function EmailsList() {
       };
 
       const header = [
-        "To",
-        "Status",
-        "Subject",
-        "Sent At",
-        "Bounce Type",
-        "Bounce Subtype",
-        "Bounce Reason",
+        "Para",
+        "Estado",
+        "Asunto",
+        "Enviado el",
+        "Tipo de rebote",
+        "Subtipo de rebote",
+        "Motivo de rebote",
       ].join(",");
       const rows = resp.data.map((e) =>
         [
@@ -166,24 +166,24 @@ export default function EmailsList() {
     <div className="mt-10 flex flex-col gap-4">
       <div className="flex flex-col  sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
         <Input
-          placeholder="Search by subject or email"
+          placeholder="Buscar por asunto o correo"
           className="w-full sm:w-[350px] sm:mr-4"
           defaultValue={search ?? ""}
           onChange={(e) => debouncedSearch(e.target.value)}
         />
         <div className="flex flex-col sm:flex-row justify-center items-center gap-3">
           <Select
-            value={apiKey ?? "All API Keys"}
+            value={apiKey ?? "Todas las API Keys"}
             onValueChange={(val) => handleApiKey(val)}
           >
             <SelectTrigger className="w-full sm:w-[180px]">
               {apiKey
                 ? apiKeysQuery?.find((apikey) => apikey.id === Number(apiKey))
                     ?.name
-                : "All API Keys"}
+                : "Todas las API Keys"}
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All API Keys">All API Keys</SelectItem>
+              <SelectItem value="Todas las API Keys">Todas las API Keys</SelectItem>
               {apiKeysQuery &&
                 apiKeysQuery.map((apikey) => (
                   <SelectItem key={apikey.id} value={apikey.id.toString()}>
@@ -193,17 +193,17 @@ export default function EmailsList() {
             </SelectContent>
           </Select>
           <Select
-            value={domain ?? "All Domains"}
+            value={domain ?? "Todos los dominios"}
             onValueChange={(val) => handleDomain(val)}
           >
             <SelectTrigger className="w-full sm:w-[180px]">
               {domain
                 ? domainsQuery?.find((d) => d.id === Number(domain))?.name
-                : "All Domains"}
+                : "Todos los dominios"}
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All Domains" className=" capitalize">
-                All Domains
+              <SelectItem value="Todos los dominios" className=" capitalize">
+                Todos los dominios
               </SelectItem>
               {domainsQuery &&
                 domainsQuery.map((domain) => (
@@ -214,17 +214,17 @@ export default function EmailsList() {
             </SelectContent>
           </Select>
           <Select
-            value={status ?? "All statuses"}
+            value={status ?? "Todos los estados"}
             onValueChange={(val) =>
-              setStatus(val === "All statuses" ? null : val)
+              setStatus(val === "Todos los estados" ? null : val)
             }
           >
             <SelectTrigger className="w-full sm:w-[180px] capitalize">
-              {status ? status.toLowerCase().replace("_", " ") : "All statuses"}
+              {status ? status.toLowerCase().replace("_", " ") : "Todos los estados"}
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All statuses" className=" capitalize">
-                All statuses
+              <SelectItem value="Todos los estados" className=" capitalize">
+                Todos los estados
               </SelectItem>
               {Object.values([
                 "SENT",
@@ -251,7 +251,7 @@ export default function EmailsList() {
             className="w-full sm:w-auto"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export
+            Exportar
           </Button>
         </div>
       </div>
@@ -259,11 +259,11 @@ export default function EmailsList() {
         <Table className="">
           <TableHeader className="">
             <TableRow className=" bg-muted dark:bg-muted/70">
-              <TableHead className="rounded-tl-xl">To</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Subject</TableHead>
+              <TableHead className="rounded-tl-xl">Para</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Asunto</TableHead>
               <TableHead className="text-right rounded-tr-xl">
-                Sent at
+                Enviado el
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -300,7 +300,7 @@ export default function EmailsList() {
                             />
                           </TooltipTrigger>
                           <TooltipContent>
-                            Scheduled at{" "}
+                            Programado el{" "}
                             {formatDate(
                               email.scheduledAt,
                               "MMM dd'th', hh:mm a",
@@ -328,7 +328,7 @@ export default function EmailsList() {
             ) : (
               <TableRow className="h-32">
                 <TableCell colSpan={4} className="text-center py-4">
-                  No emails found
+                  No se encontraron correos
                 </TableCell>
               </TableRow>
             )}
@@ -340,9 +340,9 @@ export default function EmailsList() {
           onOpenChange={handleSheetChange}
         >
           <DynamicSheetContentWithNoSSR className="sm:max-w-3xl overflow-y-auto no-scrollbar">
-            <SheetTitle className="sr-only">Email Details</SheetTitle>
+            <SheetTitle className="sr-only">Detalles del correo</SheetTitle>
             <SheetDescription className="sr-only">
-              Detailed view of the selected email.
+              Vista detallada del correo seleccionado.
             </SheetDescription>
             {selectedEmail ? <EmailDetails emailId={selectedEmail} /> : null}
           </DynamicSheetContentWithNoSSR>
@@ -354,14 +354,14 @@ export default function EmailsList() {
           onClick={() => setPage((pageNumber - 1).toString())}
           disabled={pageNumber === 1}
         >
-          Previous
+          Anterior
         </Button>
         <Button
           size="sm"
           onClick={() => setPage((pageNumber + 1).toString())}
           disabled={emailsQuery.data?.emails.length !== DEFAULT_QUERY_LIMIT}
         >
-          Next
+          Siguiente
         </Button>
       </div>
     </div>

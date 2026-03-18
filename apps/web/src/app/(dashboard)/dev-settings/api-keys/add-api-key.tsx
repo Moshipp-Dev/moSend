@@ -36,8 +36,8 @@ import {
 } from "@usesend/ui/src/select";
 
 const apiKeySchema = z.object({
-  name: z.string({ required_error: "Name is required" }).min(1, {
-    message: "Name is required",
+  name: z.string({ required_error: "El nombre es requerido" }).min(1, {
+    message: "El nombre es requerido",
   }),
   domainId: z.string().optional(),
 });
@@ -92,7 +92,7 @@ export default function AddApiKey() {
     setApiKey("");
     setOpen(false);
     setShowApiKey(false);
-    toast.success("API key copied to clipboard");
+    toast.success("Clave API copiada al portapapeles");
   }
 
   return (
@@ -103,13 +103,13 @@ export default function AddApiKey() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-1" />
-          Add API Key
+          Agregar clave API
         </Button>
       </DialogTrigger>
       {apiKey ? (
         <DialogContent key={apiKey}>
           <DialogHeader>
-            <DialogTitle>Copy API key</DialogTitle>
+            <DialogTitle>Copiar clave API</DialogTitle>
           </DialogHeader>
           <div className="py-1 bg-secondary rounded-lg px-4 flex items-center justify-between mt-2">
             <div>
@@ -166,7 +166,7 @@ export default function AddApiKey() {
       ) : (
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create a new API key</DialogTitle>
+            <DialogTitle>Crear una nueva clave API</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <Form {...apiKeyForm}>
@@ -179,15 +179,15 @@ export default function AddApiKey() {
                   name="name"
                   render={({ field, formState }) => (
                     <FormItem>
-                      <FormLabel>API key name</FormLabel>
+                      <FormLabel>Nombre de la clave API</FormLabel>
                       <FormControl>
-                        <Input placeholder="prod key" {...field} />
+                        <Input placeholder="clave producción" {...field} />
                       </FormControl>
                       {formState.errors.name ? (
                         <FormMessage />
                       ) : (
                         <FormDescription>
-                          Use a name to easily identify this API key.
+                          Usa un nombre para identificar fácilmente esta clave API.
                         </FormDescription>
                       )}
                     </FormItem>
@@ -198,18 +198,18 @@ export default function AddApiKey() {
                   name="domainId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Domain access</FormLabel>
+                      <FormLabel>Acceso a dominio</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select domain access" />
+                            <SelectValue placeholder="Seleccionar acceso a dominio" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="all">All Domains</SelectItem>
+                          <SelectItem value="all">Todos los dominios</SelectItem>
                           {domainsQuery.data?.map(
                             (domain: { id: number; name: string }) => (
                               <SelectItem
@@ -223,7 +223,7 @@ export default function AddApiKey() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Choose which domain this API key can send emails from.
+                        Elige desde qué dominio puede enviar correos esta clave API.
                       </FormDescription>
                     </FormItem>
                   )}
@@ -234,7 +234,7 @@ export default function AddApiKey() {
                     type="submit"
                     disabled={createApiKeyMutation.isPending}
                   >
-                    {createApiKeyMutation.isPending ? "Creating..." : "Create"}
+                    {createApiKeyMutation.isPending ? "Creando..." : "Crear"}
                   </Button>
                 </div>
               </form>

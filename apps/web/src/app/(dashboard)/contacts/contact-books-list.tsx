@@ -26,7 +26,7 @@ export default function ContactBooksList() {
   return (
     <div className="mt-10">
       <Input
-        placeholder="Search contact book"
+        placeholder="Buscar libreta"
         className="w-[300px] mr-4 mb-4"
         defaultValue={search ?? ""}
         onChange={(e) => debouncedSearch(e.target.value)}
@@ -53,7 +53,7 @@ export default function ContactBooksList() {
                     <span className="font-mono">
                       {contactBook._count.contacts}
                     </span>{" "}
-                    contacts
+                    contactos
                   </div>
                 </div>
               </Link>

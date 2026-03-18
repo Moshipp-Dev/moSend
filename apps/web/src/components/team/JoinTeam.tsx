@@ -54,7 +54,7 @@ export default function JoinTeam({
       },
       {
         onSuccess: async () => {
-          toast.success(`Successfully joined ${selectedInvite.team.name}`);
+          toast.success(`Te has unido exitosamente a ${selectedInvite.team.name}`);
           await Promise.all([
             utils.invitation.getUserInvites.invalidate(),
             utils.team.getTeams.invalidate(),
@@ -63,7 +63,7 @@ export default function JoinTeam({
           router.replace("/dashboard");
         },
         onError: (error) => {
-          toast.error(`Failed to join team: ${error.message}`);
+          toast.error(`Error al unirse al equipo: ${error.message}`);
           setDialogOpen(false);
         },
       }
@@ -72,13 +72,13 @@ export default function JoinTeam({
 
   if (!invites?.length) {
     return !showCreateTeam ? (
-      <div className="text-center text-xl">No invites found</div>
+      <div className="text-center text-xl">No se encontraron invitaciones</div>
     ) : null;
   }
 
   return (
     <div>
-      <div>You have been invited to join team</div>
+      <div>Has sido invitado a unirte a un equipo</div>
       <div className="space-y-2 mt-4">
         {invites.map((invite) => (
           <div
@@ -105,7 +105,7 @@ export default function JoinTeam({
               {joinTeamMutation.isPending ? (
                 <Spinner className="w-5 h-5" />
               ) : (
-                "Accept"
+                "Aceptar"
               )}
             </Button>
           </div>
@@ -120,13 +120,13 @@ export default function JoinTeam({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Accept Team Invitation</DialogTitle>
+            <DialogTitle>Aceptar invitación al equipo</DialogTitle>
             <DialogDescription>
-              Are you sure you want to join{" "}
+              ¿Estás seguro de que deseas unirte a{" "}
               <span className="font-semibold text-foreground">
                 {selectedInvite?.team.name}
               </span>
-              ? You will be added as a{" "}
+              ? Se te añadirá como{" "}
               <span className="font-semibold text-foreground lowercase">
                 {selectedInvite?.role.toLowerCase()}
               </span>
@@ -139,7 +139,7 @@ export default function JoinTeam({
               onClick={() => setDialogOpen(false)}
               disabled={joinTeamMutation.isPending}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button
               onClick={confirmAcceptInvite}
@@ -148,7 +148,7 @@ export default function JoinTeam({
               {joinTeamMutation.isPending ? (
                 <Spinner className="w-5 h-5" />
               ) : (
-                "Accept Invitation"
+                "Aceptar invitación"
               )}
             </Button>
           </div>

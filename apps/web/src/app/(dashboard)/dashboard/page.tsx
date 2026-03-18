@@ -14,7 +14,7 @@ export default function Dashboard() {
     <div>
       <div className="w-full">
         <div className="flex justify-between items-center mb-10">
-          <H1>Analytics</H1>
+          <H1>Analíticas</H1>
           <DashboardFilters
             days={days ?? "30"}
             setDays={setDays}

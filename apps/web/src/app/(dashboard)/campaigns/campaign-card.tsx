@@ -59,7 +59,7 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
             {campaign.status === CampaignStatus.SCHEDULED ? (
               campaign.scheduledAt && (
                 <div className="">
-                  At{" "}
+                  Programada para{" "}
                   <strong>
                     {format(new Date(campaign.scheduledAt), "MMM do, hh:mm a")}
                   </strong>
@@ -68,24 +68,24 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
             ) : campaign.status === CampaignStatus.SENT ? (
               <div className="flex items-center gap-2">
                 <span>
-                  Delivered <strong>{campaign.delivered},</strong>
+                  Entregados <strong>{campaign.delivered},</strong>
                 </span>
                 {/* <span className="text-muted-foreground/50 text-opacity-20">
                   |
                 </span> */}
                 <span>
-                  Unsubscribed <strong>{campaign.unsubscribed}</strong>
+                  Desuscritos <strong>{campaign.unsubscribed}</strong>
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <span>
-                  Sent <strong>{campaign.sent},</strong>
+                  Enviados <strong>{campaign.sent},</strong>
                 </span>
 
                 {pendingCount > 0 && (
                   <span>
-                    Pending <strong>{pendingCount}</strong>
+                    Pendientes <strong>{pendingCount}</strong>
                   </span>
                 )}
               </div>
@@ -109,8 +109,8 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
                 </TooltipTrigger>
                 <TooltipContent className="text-xs">
                   {campaign.status === CampaignStatus.PAUSED
-                    ? "Resume campaign"
-                    : "Pause campaign"}
+                    ? "Reanudar campaña"
+                    : "Pausar campaña"}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -121,7 +121,7 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
                 </span>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                Duplicate campaign
+                Duplicar campaña
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -131,7 +131,7 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
                 </span>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                Delete campaign
+                Eliminar campaña
               </TooltipContent>
             </Tooltip>
           </div>

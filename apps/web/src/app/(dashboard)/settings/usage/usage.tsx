@@ -48,12 +48,12 @@ function FreePlanUsage({
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
                   {item.type === "TRANSACTIONAL"
-                    ? "Mails sent using the send api or SMTP"
-                    : "Mails designed sent from useSend editor"}
+                    ? "Correos enviados mediante la API de envío o SMTP"
+                    : "Correos diseñados y enviados desde el editor de useSend"}
                 </div>
               </div>
               <div className="font-mono font-medium">
-                {item.sent.toLocaleString()} emails
+                {item.sent.toLocaleString()} correos
               </div>
             </div>
           ))}
@@ -63,7 +63,7 @@ function FreePlanUsage({
               {usage
                 ?.reduce((acc, item) => acc + item.sent, 0)
                 .toLocaleString()}{" "}
-              emails
+              correos
             </div>
           </div>
         </div>
@@ -72,7 +72,7 @@ function FreePlanUsage({
             <div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <div className="">Monthly Limit</div>
+                  <div className="">Límite mensual</div>
                   <div className="font-mono font-medium">
                     {totalSent.toLocaleString()}/
                     {FREE_PLAN_LIMIT.toLocaleString()}
@@ -92,7 +92,7 @@ function FreePlanUsage({
             <div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <div className="">Daily Limit</div>
+                  <div className="">Límite diario</div>
                   <div className="font-mono">
                     {dailyUsage.toLocaleString()}/{DAILY_LIMIT.toLocaleString()}
                   </div>
@@ -142,11 +142,11 @@ function PaidPlanUsage({
                   <span className="font-mono">
                     {item.sent.toLocaleString()}
                   </span>{" "}
-                  emails at{" "}
+                  correos a{" "}
                   <span className="font-mono">
                     ${USAGE_UNIT_PRICE[item.type]}
                   </span>{" "}
-                  each
+                  cada uno
                 </div>
               </div>
               <div className="font-mono font-medium">
@@ -157,7 +157,7 @@ function PaidPlanUsage({
           <div>
             <div className="flex justify-between items-center border-b pb-3 last:border-0 last:pb-0">
               <div>
-                <div className="font-medium capitalize">Available credit</div>
+                <div className="font-medium capitalize">Crédito disponible</div>
                 <div className="text-sm text-muted-foreground mt-1">
                   {currentTeam?.plan}
                 </div>
@@ -175,7 +175,7 @@ function PaidPlanUsage({
         </div>
         <div className="w-full flex justify-center items-center">
           <div>
-            <div className="font-medium">Amount Due</div>
+            <div className="font-medium">Monto a pagar</div>
             <div className="">
               <div className="text-2xl font-mono">
                 {planCreditCost < totalCost
@@ -208,7 +208,7 @@ export default function UsagePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Usage</h1>
+            <h1 className="text-xl font-bold">Uso</h1>
             <div className="text-sm text-muted-foreground mt-1">
               <span className="font-medium">{billingPeriod}</span>
             </div>
@@ -221,7 +221,7 @@ export default function UsagePage() {
           </div>
         ) : usage?.month.length === 0 ? (
           <Card className="p-6 text-center text-muted-foreground">
-            No usage data available
+            No hay datos de uso disponibles
           </Card>
         ) : currentTeam?.plan === "FREE" ? (
           <FreePlanUsage

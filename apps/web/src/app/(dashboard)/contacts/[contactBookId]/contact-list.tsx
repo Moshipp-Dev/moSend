@@ -59,13 +59,13 @@ function sanitizeFilename(
 function getUnsubscribeReason(reason: UnsubscribeReason) {
   switch (reason) {
     case UnsubscribeReason.BOUNCED:
-      return "Email bounced";
+      return "Email rebotado";
     case UnsubscribeReason.COMPLAINED:
-      return "User complained";
+      return "El usuario se quejó";
     case UnsubscribeReason.UNSUBSCRIBED:
-      return "User unsubscribed";
+      return "El usuario se desuscribió";
     default:
-      return "User unsubscribed";
+      return "El usuario se desuscribió";
   }
 }
 
@@ -194,7 +194,7 @@ export default function ContactList({
         <div className="flex justify-between items-center">
           <div>
             <Input
-              placeholder="Search by email or name"
+              placeholder="Buscar por email o nombre"
               className="w-[350px] mr-4"
               defaultValue={search ?? ""}
               onChange={(e) => debouncedSearch(e.target.value)}
@@ -203,17 +203,17 @@ export default function ContactList({
           <div className="flex gap-2">
             <Select value={status ?? "All"} onValueChange={handleStatusChange}>
               <SelectTrigger className="w-[180px] capitalize">
-                {status || "All statuses"}
+                {status || "Todos los estados"}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All" className=" capitalize">
-                  All statuses
+                  Todos los estados
                 </SelectItem>
                 <SelectItem value="Subscribed" className=" capitalize">
-                  Subscribed
+                  Suscrito
                 </SelectItem>
                 <SelectItem value="Unsubscribed" className=" capitalize">
-                  Unsubscribed
+                  Desuscrito
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -231,7 +231,7 @@ export default function ContactList({
               ) : (
                 <Download className="w-4 h-4 mr-2" />
               )}
-              Export
+              Exportar
             </Button>
           </div>
         </div>
@@ -240,9 +240,9 @@ export default function ContactList({
             <TableHeader className="">
               <TableRow className=" bg-muted/30">
                 <TableHead className="rounded-tl-xl">Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="">Created At</TableHead>
-                <TableHead className="rounded-tr-xl">Actions</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="">Creado</TableHead>
+                <TableHead className="rounded-tr-xl">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -289,17 +289,17 @@ export default function ContactList({
                       <TableCell>
                         {contact.subscribed ? (
                           <div className="text-center w-[130px] rounded capitalize py-1 text-xs bg-green/15 text-green border border-green/25">
-                            Subscribed
+                            Suscrito
                           </div>
                         ) : isPendingConfirmation ? (
                           <div className="text-center w-[130px] rounded capitalize py-1 text-xs bg-yellow/20 text-yellow border border-yellow/20">
-                            Pending
+                            Pendiente
                           </div>
                         ) : (
                           <Tooltip>
                             <TooltipTrigger>
                               <div className="text-center w-[130px] rounded capitalize py-1 text-xs bg-red/10 text-red border border-red/10">
-                                Unsubscribed
+                                Desuscrito
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -340,7 +340,7 @@ export default function ContactList({
               ) : (
                 <TableRow className="h-32">
                   <TableCell colSpan={4} className="text-center py-4">
-                    No contacts found
+                    No se encontraron contactos
                   </TableCell>
                 </TableRow>
               )}
@@ -353,14 +353,14 @@ export default function ContactList({
             onClick={() => setPage((pageNumber - 1).toString())}
             disabled={pageNumber === 1}
           >
-            Previous
+            Anterior
           </Button>
           <Button
             size="sm"
             onClick={() => setPage((pageNumber + 1).toString())}
             disabled={pageNumber >= (contactsQuery.data?.totalPage ?? 0)}
           >
-            Next
+            Siguiente
           </Button>
         </div>
       </div>

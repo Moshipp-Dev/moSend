@@ -18,10 +18,10 @@ export const DeleteApiKey: React.FC<{
     .object({
       confirmation: z
         .string()
-        .min(1, "Please type the API key name to confirm"),
+        .min(1, "Por favor escribe el nombre de la clave API para confirmar"),
     })
     .refine((data) => data.confirmation === apiKey.name, {
-      message: "API key name does not match",
+      message: "El nombre de la clave API no coincide",
       path: ["confirmation"],
     });
 
@@ -33,7 +33,7 @@ export const DeleteApiKey: React.FC<{
       {
         onSuccess: () => {
           utils.apiKey.invalidate();
-          toast.success(`API key deleted`);
+          toast.success(`Clave API eliminada`);
         },
       },
     );
@@ -41,7 +41,7 @@ export const DeleteApiKey: React.FC<{
 
   return (
     <DeleteResource
-      title="Delete API key"
+      title="Eliminar clave API"
       resourceName={apiKey.name || ""}
       schema={apiKeySchema}
       isLoading={deleteApiKeyMutation.isPending}
@@ -51,7 +51,7 @@ export const DeleteApiKey: React.FC<{
           <Trash2 className="h-4 w-4 text-red/80" />
         </Button>
       }
-      confirmLabel="Delete API key"
+      confirmLabel="Eliminar clave API"
     />
   );
 };

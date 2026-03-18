@@ -29,11 +29,11 @@ export default function RemoveSuppressionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Remove Suppression</DialogTitle>
+          <DialogTitle>Eliminar supresión</DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove <strong>{email}</strong> from the
-            suppression list? This email address will be able to receive emails
-            again.
+            ¿Estás seguro de que deseas eliminar <strong>{email}</strong> de la
+            lista de supresión? Esta dirección de correo podrá recibir correos
+            nuevamente.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -42,14 +42,14 @@ export default function RemoveSuppressionDialog({
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="destructive"
             onClick={onConfirm}
             disabled={isLoading}
           >
-            {isLoading ? "Removing..." : "Remove"}
+            {isLoading ? "Eliminando..." : "Eliminar"}
           </Button>
         </DialogFooter>
       </DialogContent>

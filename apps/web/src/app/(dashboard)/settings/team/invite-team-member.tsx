@@ -39,11 +39,12 @@ import { LimitReason } from "~/lib/constants/plans";
 
 const inviteTeamMemberSchema = z.object({
   email: z
-    .string({ required_error: "Email is required" })
-    .email("Invalid email address"),
-  role: z.enum(["ADMIN", "MEMBER"], {
-    required_error: "Please select a role",
+    .string({ required_error: "El correo es requerido" })
+    .email("Dirección de correo inválida"),
+  role: z.enum(["ADMIN", "MEMBER", "CLIENT"], {
+    required_error: "Por favor selecciona un rol",
   }),
+  domainIds: z.array(z.number()).optional(),
 });
 
 type FormData = z.infer<typeof inviteTeamMemberSchema>;
@@ -64,8 +65,12 @@ export default function InviteTeamMember() {
     defaultValues: {
       email: "",
       role: "MEMBER",
+      domainIds: [],
     },
   });
+
+  const selectedRole = form.watch("role");
+  const selectedDomainIds = form.watch("domainIds") ?? [];
 
   const utils = api.useUtils();
 
@@ -82,17 +87,18 @@ export default function InviteTeamMember() {
         email: values.email,
         role: values.role,
         sendEmail: true,
+        domainIds: values.role === "CLIENT" ? (values.domainIds ?? []) : undefined,
       },
       {
         onSuccess: () => {
           form.reset();
           setOpen(false);
           void utils.team.getTeamInvites.invalidate();
-          toast.success("Invitation sent successfully");
+          toast.success("Invitación enviada exitosamente");
         },
         onError: (error) => {
           console.error(error);
-          toast.error(error.message || "Failed to send invitation");
+          toast.error(error.message || "No se pudo enviar la invitación");
         },
       },
     );
@@ -109,6 +115,7 @@ export default function InviteTeamMember() {
         email: form.getValues("email"),
         role: form.getValues("role"),
         sendEmail: false,
+        domainIds: form.getValues("role") === "CLIENT" ? (form.getValues("domainIds") ?? []) : undefined,
       },
       {
         onSuccess: (invite) => {
@@ -118,11 +125,11 @@ export default function InviteTeamMember() {
           );
           form.reset();
           setOpen(false);
-          toast.success("Invitation link copied to clipboard");
+          toast.success("Enlace de invitación copiado al portapapeles");
         },
         onError: (error) => {
           console.error(error);
-          toast.error(error.message || "Failed to copy invitation link");
+          toast.error(error.message || "No se pudo copiar el enlace de invitación");
         },
       },
     );
@@ -149,12 +156,12 @@ export default function InviteTeamMember() {
       <DialogTrigger asChild>
         <Button size="sm">
           <PlusIcon className="mr-2 h-4 w-4" />
-          Invite Member
+          Invitar miembro
         </Button>
       </DialogTrigger>
       <DialogContent className=" max-w-lg">
         <DialogHeader>
-          <DialogTitle>Invite Team Member</DialogTitle>
+          <DialogTitle>Invitar miembro al equipo</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -166,15 +173,15 @@ export default function InviteTeamMember() {
               name="email"
               render={({ field, formState }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Correo electrónico</FormLabel>
                   <FormControl>
-                    <Input placeholder="colleague@example.com" {...field} />
+                    <Input placeholder="colega@ejemplo.com" {...field} />
                   </FormControl>
                   {formState.errors.email ? (
                     <FormMessage />
                   ) : (
                     <FormDescription>
-                      Enter your colleague's email address
+                      Ingresa la dirección de correo de tu colega
                     </FormDescription>
                   )}
                 </FormItem>
@@ -185,7 +192,7 @@ export default function InviteTeamMember() {
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>Rol</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
@@ -196,15 +203,21 @@ export default function InviteTeamMember() {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="ADMIN">
-                        <div>Admin</div>
+                        <div>Administrador</div>
                         <div className="text-xs text-muted-foreground">
-                          Manage users, update payments
+                          Gestionar usuarios, actualizar pagos
                         </div>
                       </SelectItem>
                       <SelectItem value="MEMBER">
-                        <div>Member</div>
+                        <div>Miembro</div>
                         <div className="text-xs text-muted-foreground">
-                          Manage emails, domains and contacts
+                          Gestionar correos, dominios y contactos
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="CLIENT">
+                        <div>Cliente</div>
+                        <div className="text-xs text-muted-foreground">
+                          Ver y gestionar solo los dominios asignados
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -213,7 +226,51 @@ export default function InviteTeamMember() {
                 </FormItem>
               )}
             />
-            {isSelfHosted() && domains?.length ? (
+            {selectedRole === "CLIENT" && (
+              <FormField
+                control={form.control}
+                name="domainIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dominios asignados</FormLabel>
+                    <div className="flex flex-col gap-2 rounded-md border p-3">
+                      {domains && domains.length > 0 ? (
+                        domains.map((domain) => {
+                          const checked = (field.value ?? []).includes(domain.id);
+                          return (
+                            <label
+                              key={domain.id}
+                              className="flex items-center gap-2 cursor-pointer text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const current = field.value ?? [];
+                                  field.onChange(
+                                    checked
+                                      ? current.filter((id) => id !== domain.id)
+                                      : [...current, domain.id]
+                                  );
+                                }}
+                                className="h-4 w-4 rounded border"
+                              />
+                              {domain.name}
+                            </label>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          No hay dominios disponibles. Agrega un dominio primero.
+                        </p>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            {isSelfHosted() && domains?.length && selectedRole !== "CLIENT" ? (
               <div className="text-sm text-muted-foreground">
                 Will use{" "}
                 <span className="font-bold">hello@{domains[0]?.name}</span> to
@@ -226,7 +283,7 @@ export default function InviteTeamMember() {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                Cancelar
               </Button>
               {isSelfHosted() ? (
                 <Button
@@ -235,7 +292,7 @@ export default function InviteTeamMember() {
                   className="w-[150px]"
                   onClick={form.handleSubmit(onCopyLink)}
                 >
-                  Copy Invitation
+                  Copiar invitación
                 </Button>
               ) : null}
               {isCloud() || domains?.length ? (
@@ -245,7 +302,7 @@ export default function InviteTeamMember() {
                   isLoading={createInvite.isPending}
                   className="w-[150px]"
                 >
-                  Send Invitation
+                  Enviar invitación
                 </Button>
               ) : null}
             </div>

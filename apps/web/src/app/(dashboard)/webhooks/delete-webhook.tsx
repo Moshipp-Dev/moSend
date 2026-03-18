@@ -16,10 +16,10 @@ export const DeleteWebhook: React.FC<{
 
   const schema = z
     .object({
-      confirmation: z.string().min(1, "Please type the webhook URL to confirm"),
+      confirmation: z.string().min(1, "Por favor, escribe la URL del webhook para confirmar"),
     })
     .refine((data) => data.confirmation === webhook.url, {
-      message: "Webhook URL does not match",
+      message: "La URL del webhook no coincide",
       path: ["confirmation"],
     });
 
@@ -29,7 +29,7 @@ export const DeleteWebhook: React.FC<{
       {
         onSuccess: async () => {
           await utils.webhook.list.invalidate();
-          toast.success("Webhook deleted");
+          toast.success("Webhook eliminado");
         },
         onError: (error) => {
           toast.error(error.message);
@@ -40,12 +40,12 @@ export const DeleteWebhook: React.FC<{
 
   return (
     <DeleteResource
-      title="Delete webhook"
+      title="Eliminar webhook"
       resourceName={webhook.url}
       schema={schema}
       isLoading={deleteWebhookMutation.isPending}
       onConfirm={onConfirm}
-      confirmLabel="Delete webhook"
+      confirmLabel="Eliminar webhook"
       trigger={
         <Button
           variant="ghost"
@@ -53,7 +53,7 @@ export const DeleteWebhook: React.FC<{
           className="w-full justify-start rounded-lg text-red/80 hover:bg-accent hover:text-red"
         >
           <Trash2 className="mr-2 h-4 w-4" />
-          Delete
+          Eliminar
         </Button>
       }
     />

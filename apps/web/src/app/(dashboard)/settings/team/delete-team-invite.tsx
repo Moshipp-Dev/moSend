@@ -31,7 +31,7 @@ export const DeleteTeamInvite: React.FC<{
         onSuccess: async () => {
           utils.team.getTeamInvites.invalidate();
           setOpen(false);
-          toast.success("Invite cancelled successfully");
+          toast.success("Invitación cancelada exitosamente");
         },
         onError: async (error) => {
           toast.error(error.message);
@@ -52,9 +52,9 @@ export const DeleteTeamInvite: React.FC<{
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cancel Invite</DialogTitle>
+          <DialogTitle>Cancelar invitación</DialogTitle>
           <DialogDescription>
-            Are you sure you want to cancel the invite for{" "}
+            ¿Estás seguro de que deseas cancelar la invitación para{" "}
             <span className="font-semibold text-foreground">
               {invite.email}
             </span>
@@ -63,7 +63,7 @@ export const DeleteTeamInvite: React.FC<{
         </DialogHeader>
         <div className="flex justify-end gap-4 mt-6">
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="destructive"
@@ -71,7 +71,7 @@ export const DeleteTeamInvite: React.FC<{
             onClick={onInviteDelete}
             className="w-[150px]"
           >
-            Delete Invite
+            Eliminar invitación
           </Button>
         </div>
       </DialogContent>

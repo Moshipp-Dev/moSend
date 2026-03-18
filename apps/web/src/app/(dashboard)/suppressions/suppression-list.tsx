@@ -28,8 +28,8 @@ import RemoveSuppressionDialog from "./remove-suppression";
 import Spinner from "@usesend/ui/src/spinner";
 
 const reasonLabels = {
-  HARD_BOUNCE: "Hard Bounce",
-  COMPLAINT: "Complaint",
+  HARD_BOUNCE: "Rebote duro",
+  COMPLAINT: "Queja",
   MANUAL: "Manual",
 } as const;
 
@@ -117,19 +117,19 @@ export default function SuppressionList() {
         {/* Filters */}
         <div className="flex gap-4">
           <Input
-            placeholder="Search by email address..."
+            placeholder="Buscar por dirección de correo..."
             className="max-w-sm"
             defaultValue={search || ""}
             onChange={(e) => debouncedSearch(e.target.value)}
           />
           <Select value={reason || "all"} onValueChange={handleReasonFilter}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by reason" />
+              <SelectValue placeholder="Filtrar por motivo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Reasons</SelectItem>
-              <SelectItem value="HARD_BOUNCE">Hard Bounce</SelectItem>
-              <SelectItem value="COMPLAINT">Complaint</SelectItem>
+              <SelectItem value="all">Todos los motivos</SelectItem>
+              <SelectItem value="HARD_BOUNCE">Rebote duro</SelectItem>
+              <SelectItem value="COMPLAINT">Queja</SelectItem>
               <SelectItem value="MANUAL">Manual</SelectItem>
             </SelectContent>
           </Select>
@@ -140,7 +140,7 @@ export default function SuppressionList() {
           disabled={exportQuery.isFetching}
         >
           <Download className="h-4 w-4 mr-2" />
-          Export
+          Exportar
         </Button>
       </div>
 
@@ -149,10 +149,10 @@ export default function SuppressionList() {
         <Table className="">
           <TableHeader className="">
             <TableRow className=" bg-muted/30">
-              <TableHead className="rounded-tl-xl">Email</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Added</TableHead>
-              <TableHead className="rounded-tr-xl">Actions</TableHead>
+              <TableHead className="rounded-tl-xl">Correo</TableHead>
+              <TableHead>Motivo</TableHead>
+              <TableHead>Agregado</TableHead>
+              <TableHead className="rounded-tr-xl">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -168,7 +168,7 @@ export default function SuppressionList() {
             ) : suppressionsQuery.data?.suppressions.length === 0 ? (
               <TableRow className="h-32">
                 <TableCell colSpan={4} className="text-center py-4">
-                  No suppressed emails found
+                  No se encontraron correos suprimidos
                 </TableCell>
               </TableRow>
             ) : (
@@ -220,14 +220,14 @@ export default function SuppressionList() {
           onClick={() => setPage(String(parseInt(page || "1") - 1))}
           disabled={parseInt(page || "1") === 1}
         >
-          Previous
+          Anterior
         </Button>
         <Button
           size="sm"
           onClick={() => setPage(String(parseInt(page || "1") + 1))}
           disabled={!suppressionsQuery.data?.pagination?.hasNext}
         >
-          Next
+          Siguiente
         </Button>
       </div>
 

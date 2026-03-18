@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   teamProcedure,
+  teamMemberProcedure,
   protectedProcedure,
   domainProcedure,
 } from "~/server/api/trpc";
@@ -23,7 +24,7 @@ export const domainRouter = createTRPCRouter({
     return settings.map((setting) => setting.region);
   }),
 
-  createDomain: teamProcedure
+  createDomain: teamMemberProcedure
     .input(z.object({ name: z.string(), region: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return createDomain(
@@ -42,6 +43,17 @@ export const domainRouter = createTRPCRouter({
   }),
 
   domains: teamProcedure.query(async ({ ctx }) => {
+    if (ctx.teamUser.role === "CLIENT") {
+      const accesses = await ctx.db.clientDomainAccess.findMany({
+        where: { userId: ctx.teamUser.userId, teamId: ctx.team.id },
+        select: { domainId: true },
+      });
+      const domainIds = accesses.map((a) => a.domainId);
+      return ctx.db.domain.findMany({
+        where: { teamId: ctx.team.id, id: { in: domainIds } },
+        orderBy: { createdAt: "desc" },
+      });
+    }
     return getDomains(ctx.team.id);
   }),
 
@@ -63,10 +75,17 @@ export const domainRouter = createTRPCRouter({
       });
     }),
 
-  deleteDomain: domainProcedure.mutation(async ({ input }) => {
-    await deleteDomain(input.id);
-    return { success: true };
-  }),
+  deleteDomain: domainProcedure
+    .use(async ({ ctx, next }) => {
+      if (ctx.teamUser.role === "CLIENT") {
+        throw new Error("Clients cannot delete domains");
+      }
+      return next();
+    })
+    .mutation(async ({ input }) => {
+      await deleteDomain(input.id);
+      return { success: true };
+    }),
 
   sendTestEmailFromDomain: domainProcedure.mutation(
     async ({

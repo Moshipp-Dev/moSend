@@ -26,10 +26,10 @@ export const PlanDetails = () => {
           : "free"}
       </div>
       <div className="flex items-center gap-2">
-        <div className="text-muted-foreground text-sm">Current plan</div>
+        <div className="text-muted-foreground text-sm">Plan actual</div>
         {subscriptionQuery.data?.cancelAtPeriodEnd && (
           <Badge variant="secondary">
-            Cancels {format(subscriptionQuery.data.cancelAtPeriodEnd, "MMM dd")}
+            Cancela el {format(subscriptionQuery.data.cancelAtPeriodEnd, "MMM dd")}
           </Badge>
         )}
       </div>

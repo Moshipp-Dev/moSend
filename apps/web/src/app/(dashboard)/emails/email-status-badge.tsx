@@ -1,5 +1,19 @@
 import { EmailStatus } from "@prisma/client";
 
+const statusLabels: Record<string, string> = {
+  SENT: "Enviado",
+  SCHEDULED: "Programado",
+  QUEUED: "En cola",
+  DELIVERED: "Entregado",
+  BOUNCED: "Rebotado",
+  FAILED: "Fallido",
+  CLICKED: "Clic",
+  OPENED: "Abierto",
+  DELIVERY_DELAYED: "Entrega retrasada",
+  COMPLAINED: "Reportado",
+  SUPPRESSED: "Suprimido",
+};
+
 export const EmailStatusBadge: React.FC<{ status: EmailStatus }> = ({
   status,
 }) => {
@@ -33,7 +47,7 @@ export const EmailStatusBadge: React.FC<{ status: EmailStatus }> = ({
     <div
       className={` text-center w-[130px] rounded capitalize py-1 text-xs ${badgeColor}`}
     >
-      {status.toLowerCase().split("_").join(" ")}
+      {statusLabels[status] ?? status.toLowerCase().split("_").join(" ")}
     </div>
   );
 };

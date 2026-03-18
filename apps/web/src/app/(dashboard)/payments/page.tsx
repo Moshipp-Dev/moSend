@@ -16,10 +16,10 @@ export default function PaymentsPage() {
 
   return (
     <div className="container mx-auto py-10">
-      <H1>Payment {success ? "Success" : canceled ? "Canceled" : "Unknown"}</H1>
+      <H1>Pago {success ? "exitoso" : canceled ? "cancelado" : "desconocido"}</H1>
       {canceled ? (
         <Link href="/settings/billing">
-          <Button>Go to billing</Button>
+          <Button>Ir a facturación</Button>
         </Link>
       ) : null}
       {success ? <VerifySuccess /> : null}
@@ -37,10 +37,10 @@ function VerifySuccess() {
       <div>
         <div className="flex gap-2 items-center">
           <CheckCircle2 className="h-4 w-4 text-green flex-shrink-0" />
-          <p>Your account has been upgraded to the paid plan.</p>
+          <p>Tu cuenta ha sido actualizada al plan de pago.</p>
         </div>
         <Link href="/settings/billing" className="mt-8">
-          <Button className="mt-8">Go to billing</Button>
+          <Button className="mt-8">Ir a facturación</Button>
         </Link>
       </div>
     );
@@ -52,7 +52,7 @@ function VerifySuccess() {
         className="h-5 w-5 stroke-muted-foreground"
         innerSvgClass=" stroke-muted-foreground"
       />
-      <p className="text-muted-foreground">Verifying payment</p>
+      <p className="text-muted-foreground">Verificando pago</p>
     </div>
   );
 }

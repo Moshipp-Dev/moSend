@@ -71,14 +71,14 @@ export default function AddSuppressionDialog({
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedEmail) {
-      setError("Email address is required");
+      setError("La dirección de correo es obligatoria");
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
-      setError("Please enter a valid email address");
+      setError("Por favor, ingresa una dirección de correo válida");
       return;
     }
 
@@ -86,7 +86,7 @@ export default function AddSuppressionDialog({
     try {
       const { data: isAlreadySuppressed } = await checkMutation.refetch();
       if (isAlreadySuppressed) {
-        setError("This email is already suppressed");
+        setError("Este correo ya está suprimido");
         return;
       }
     } catch (error) {
@@ -103,20 +103,20 @@ export default function AddSuppressionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Email Suppression</DialogTitle>
+          <DialogTitle>Agregar supresión de correo</DialogTitle>
           <DialogDescription>
-            Add an email address to the suppression list to prevent future
-            emails from being sent to it.
+            Agrega una dirección de correo a la lista de supresión para evitar
+            que se le envíen correos en el futuro.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="email">Dirección de correo</Label>
             <Input
               id="email"
               type="email"
-              placeholder="example@domain.com"
+              placeholder="ejemplo@dominio.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={addMutation.isPending}
@@ -124,7 +124,7 @@ export default function AddSuppressionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Reason</Label>
+            <Label htmlFor="reason">Motivo</Label>
             <Select
               value={reason}
               onValueChange={(value) => setReason(value as SuppressionReason)}
@@ -135,8 +135,8 @@ export default function AddSuppressionDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="MANUAL">Manual</SelectItem>
-                <SelectItem value="HARD_BOUNCE">Hard Bounce</SelectItem>
-                <SelectItem value="COMPLAINT">Complaint</SelectItem>
+                <SelectItem value="HARD_BOUNCE">Rebote duro</SelectItem>
+                <SelectItem value="COMPLAINT">Queja</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -154,13 +154,13 @@ export default function AddSuppressionDialog({
               onClick={handleClose}
               disabled={addMutation.isPending}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button
               type="submit"
               disabled={addMutation.isPending || !email.trim()}
             >
-              {addMutation.isPending ? "Adding..." : "Add Suppression"}
+              {addMutation.isPending ? "Agregando..." : "Agregar supresión"}
             </Button>
           </DialogFooter>
         </form>

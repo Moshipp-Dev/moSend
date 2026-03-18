@@ -65,6 +65,17 @@ export const invitationRouter = createTRPCRouter({
         },
       });
 
+      if (invite.role === "CLIENT" && invite.domainIds.length > 0) {
+        await ctx.db.clientDomainAccess.createMany({
+          data: invite.domainIds.map((domainId) => ({
+            userId: ctx.session.user.id,
+            domainId,
+            teamId: invite.teamId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       await ctx.db.teamInvite.delete({
         where: {
           id: input.inviteId,

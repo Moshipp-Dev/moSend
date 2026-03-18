@@ -36,10 +36,10 @@ export default function TemplateList() {
         <Table className="">
           <TableHeader className="">
             <TableRow className=" bg-muted/30">
-              <TableHead className="rounded-tl-xl">Name</TableHead>
+              <TableHead className="rounded-tl-xl">Nombre</TableHead>
               <TableHead className="">ID</TableHead>
-              <TableHead className="">Created At</TableHead>
-              <TableHead className="rounded-tr-xl">Actions</TableHead>
+              <TableHead className="">Creado</TableHead>
+              <TableHead className="rounded-tr-xl">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -85,7 +85,7 @@ export default function TemplateList() {
             ) : (
               <TableRow className="h-32">
                 <TableCell colSpan={4} className="text-center py-4">
-                  No templates found
+                  No se encontraron plantillas
                 </TableCell>
               </TableRow>
             )}
@@ -98,14 +98,14 @@ export default function TemplateList() {
           onClick={() => setPage((pageNumber - 1).toString())}
           disabled={pageNumber === 1}
         >
-          Previous
+          Anterior
         </Button>
         <Button
           size="sm"
           onClick={() => setPage((pageNumber + 1).toString())}
           disabled={pageNumber >= (templateQuery.data?.totalPage ?? 0)}
         >
-          Next
+          Siguiente
         </Button>
       </div>
     </div>

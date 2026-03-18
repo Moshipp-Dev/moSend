@@ -34,14 +34,16 @@ import {
 } from "@usesend/ui/src/select";
 
 const teamUserSchema = z.object({
-  role: z.enum(["MEMBER", "ADMIN"]),
+  role: z.enum(["MEMBER", "ADMIN", "CLIENT"]),
+  domainIds: z.array(z.number()).optional(),
 });
 
 export const EditTeamMember: React.FC<{
-  teamUser: { userId: string; role: Role };
+  teamUser: { userId: string; role: Role; assignedDomainIds?: number[] };
 }> = ({ teamUser }) => {
   const [open, setOpen] = useState(false);
   const updateTeamUserMutation = api.team.updateTeamUserRole.useMutation();
+  const { data: domains } = api.domain.domains.useQuery();
 
   const utils = api.useUtils();
 
@@ -49,20 +51,24 @@ export const EditTeamMember: React.FC<{
     resolver: zodResolver(teamUserSchema),
     defaultValues: {
       role: teamUser.role,
+      domainIds: teamUser.assignedDomainIds ?? [],
     },
   });
+
+  const selectedRole = teamUserForm.watch("role");
 
   async function onTeamUserUpdate(values: z.infer<typeof teamUserSchema>) {
     updateTeamUserMutation.mutate(
       {
         userId: teamUser.userId,
         role: values.role,
+        domainIds: values.role === "CLIENT" ? (values.domainIds ?? []) : undefined,
       },
       {
         onSuccess: async () => {
           utils.team.getTeamUsers.invalidate();
           setOpen(false);
-          toast.success("Team member role updated successfully");
+          toast.success("Rol del miembro actualizado exitosamente");
         },
         onError: async (error) => {
           toast.error(error.message);
@@ -83,7 +89,7 @@ export const EditTeamMember: React.FC<{
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Team Member Role</DialogTitle>
+          <DialogTitle>Editar rol del miembro</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <Form {...teamUserForm}>
@@ -96,39 +102,84 @@ export const EditTeamMember: React.FC<{
                 name="role"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Role</FormLabel>
+                    <FormLabel>Rol</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
+                          <SelectValue placeholder="Seleccionar rol" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="MEMBER">Member</SelectItem>
-                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="MEMBER">Miembro</SelectItem>
+                        <SelectItem value="ADMIN">Administrador</SelectItem>
+                        <SelectItem value="CLIENT">Cliente</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              {selectedRole === "CLIENT" && (
+                <FormField
+                  control={teamUserForm.control}
+                  name="domainIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dominios asignados</FormLabel>
+                      <div className="flex flex-col gap-2 rounded-md border p-3">
+                        {domains && domains.length > 0 ? (
+                          domains.map((domain) => {
+                            const checked = (field.value ?? []).includes(domain.id);
+                            return (
+                              <label
+                                key={domain.id}
+                                className="flex items-center gap-2 cursor-pointer text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => {
+                                    const current = field.value ?? [];
+                                    field.onChange(
+                                      checked
+                                        ? current.filter((id) => id !== domain.id)
+                                        : [...current, domain.id]
+                                    );
+                                  }}
+                                  className="h-4 w-4 rounded border"
+                                />
+                                {domain.name}
+                              </label>
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No hay dominios disponibles.
+                          </p>
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <div className="flex justify-end gap-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setOpen(false)}
                 >
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button
                   type="submit"
                   isLoading={updateTeamUserMutation.isPending}
                   className="w-[150px]"
                 >
-                  Update Role
+                  Actualizar rol
                 </Button>
               </div>
             </form>

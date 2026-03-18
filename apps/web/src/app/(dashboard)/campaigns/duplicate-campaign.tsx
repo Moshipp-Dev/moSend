@@ -33,7 +33,7 @@ export const DuplicateCampaign: React.FC<{
         onSuccess: () => {
           utils.campaign.getCampaigns.invalidate();
           setOpen(false);
-          toast.success(`Campaign duplicated`);
+          toast.success(`Campaña duplicada`);
         },
       },
     );
@@ -51,9 +51,9 @@ export const DuplicateCampaign: React.FC<{
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Duplicate Campaign</DialogTitle>
+          <DialogTitle>Duplicar campaña</DialogTitle>
           <DialogDescription>
-            Are you sure you want to duplicate{" "}
+            ¿Estás seguro de que deseas duplicar{" "}
             <span className="font-semibold text-foreground">
               {campaign.name}
             </span>
@@ -68,8 +68,8 @@ export const DuplicateCampaign: React.FC<{
               disabled={duplicateCampaignMutation.isPending}
             >
               {duplicateCampaignMutation.isPending
-                ? "Duplicating..."
-                : "Duplicate"}
+                ? "Duplicando..."
+                : "Duplicar"}
             </Button>
           </div>
         </div>

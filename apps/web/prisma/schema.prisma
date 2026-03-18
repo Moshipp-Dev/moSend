@@ -79,18 +79,19 @@ model VerificationToken {
 }
 
 model User {
-  id               Int        @id @default(autoincrement())
-  name             String?
-  email            String?    @unique
-  emailVerified    DateTime?
-  image            String?
-  isBetaUser       Boolean    @default(false)
-  isWaitlisted     Boolean    @default(false)
-  createdAt        DateTime   @default(now())
-  accounts         Account[]
-  sessions         Session[]
-  teamUsers        TeamUser[]
-  webhookEndpoints Webhook[]
+  id                   Int                   @id @default(autoincrement())
+  name                 String?
+  email                String?               @unique
+  emailVerified        DateTime?
+  image                String?
+  isBetaUser           Boolean               @default(false)
+  isWaitlisted         Boolean               @default(false)
+  createdAt            DateTime              @default(now())
+  accounts             Account[]
+  sessions             Session[]
+  teamUsers            TeamUser[]
+  webhookEndpoints     Webhook[]
+  clientDomainAccesses ClientDomainAccess[]
 }
 
 enum Plan {
@@ -112,19 +113,20 @@ model Team {
   isVerified       Boolean           @default(false)
   dailyEmailLimit  Int               @default(10000)
   isBlocked        Boolean           @default(false)
-  teamUsers        TeamUser[]
-  domains          Domain[]
-  apiKeys          ApiKey[]
-  emails           Email[]
-  contactBooks     ContactBook[]
-  campaigns        Campaign[]
-  templates        Template[]
-  dailyEmailUsages DailyEmailUsage[]
-  subscription     Subscription[]
-  invites          TeamInvite[]
-  suppressionList  SuppressionList[]
-  webhookEndpoints Webhook[]
-  webhookCalls     WebhookCall[]
+  teamUsers            TeamUser[]
+  domains              Domain[]
+  apiKeys              ApiKey[]
+  emails               Email[]
+  contactBooks         ContactBook[]
+  campaigns            Campaign[]
+  templates            Template[]
+  dailyEmailUsages     DailyEmailUsage[]
+  subscription         Subscription[]
+  invites              TeamInvite[]
+  suppressionList      SuppressionList[]
+  webhookEndpoints     Webhook[]
+  webhookCalls         WebhookCall[]
+  clientDomainAccesses ClientDomainAccess[]
 }
 
 model TeamInvite {
@@ -132,6 +134,7 @@ model TeamInvite {
   teamId    Int
   email     String
   role      Role
+  domainIds Int[]    @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -159,6 +162,7 @@ model Subscription {
 enum Role {
   ADMIN
   MEMBER
+  CLIENT
 }
 
 model TeamUser {
@@ -198,8 +202,9 @@ model Domain {
   isVerifying   Boolean      @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  apiKeys       ApiKey[]
+  team                 Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  apiKeys              ApiKey[]
+  clientDomainAccesses ClientDomainAccess[]
 }
 
 enum ApiPermission {
@@ -487,6 +492,18 @@ model Webhook {
   createdBy           User?         @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
+}
+
+model ClientDomainAccess {
+  userId   Int
+  domainId Int
+  teamId   Int
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain   Domain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, domainId])
+  @@index([userId, teamId])
 }
 
 model WebhookCall {

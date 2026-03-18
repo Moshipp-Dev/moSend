@@ -1,17 +1,17 @@
 export const PLAN_PERKS = {
   FREE: [
-    "Send up to 3000 emails per month",
-    "Send up to 100 emails per day",
-    "Can have 1 contact book",
-    "Can have 1 domain",
-    "Can have 1 team member",
+    "Envía hasta 3000 correos por mes",
+    "Envía hasta 100 correos por día",
+    "Puede tener 1 libreta de contactos",
+    "Puede tener 1 dominio",
+    "Puede tener 1 miembro del equipo",
   ],
   BASIC: [
-    "Includes $10 of usage monthly",
-    "Send transactional emails at $0.0004 per email",
-    "Send marketing emails at $0.001 per email",
-    "Can have unlimited contact books",
-    "Can have unlimited domains",
-    "Can have unlimited team members",
+    "Incluye $10 de uso mensual",
+    "Envía correos transaccionales a $0.0004 por correo",
+    "Envía correos de marketing a $0.001 por correo",
+    "Puede tener libretas de contactos ilimitadas",
+    "Puede tener dominios ilimitados",
+    "Puede tener miembros del equipo ilimitados",
   ],
 };

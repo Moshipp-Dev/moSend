@@ -40,8 +40,8 @@ import { LimitReason } from "~/lib/constants/plans";
 
 const domainSchema = z.object({
   region: z.string().optional(),
-  domain: z.string({ required_error: "Domain is required" }).min(1, {
-    message: "Domain is required",
+  domain: z.string({ required_error: "El dominio es requerido" }).min(1, {
+    message: "El dominio es requerido",
   }),
 });
 
@@ -75,7 +75,7 @@ export default function AddDomain() {
     const domain = tldts.getDomain(values.domain);
     if (!domain) {
       domainForm.setError("domain", {
-        message: "Invalid domain",
+        message: "Dominio inválido",
       });
 
       return;
@@ -83,7 +83,7 @@ export default function AddDomain() {
 
     if (!values.region && !singleRegion) {
       domainForm.setError("region", {
-        message: "Region is required",
+        message: "La región es requerida",
       });
       return;
     }
@@ -128,12 +128,12 @@ export default function AddDomain() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-1" />
-          Add domain
+          Agregar dominio
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add a new domain</DialogTitle>
+          <DialogTitle>Agregar un nuevo dominio</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <Form {...domainForm}>
@@ -146,7 +146,7 @@ export default function AddDomain() {
                 name="domain"
                 render={({ field, formState }) => (
                   <FormItem>
-                    <FormLabel>Domain</FormLabel>
+                    <FormLabel>Dominio</FormLabel>
                     <FormControl>
                       <Input placeholder="subdomain.example.com" {...field} />
                     </FormControl>
@@ -154,8 +154,8 @@ export default function AddDomain() {
                       <FormMessage />
                     ) : (
                       <FormDescription>
-                        Use subdomains to separate transactional and marketing
-                        emails.{" "}
+                        Usa subdominios para separar correos transaccionales y
+                        de marketing.{" "}
                       </FormDescription>
                     )}
                   </FormItem>
@@ -168,7 +168,7 @@ export default function AddDomain() {
                   name="region"
                   render={({ field, formState }) => (
                     <FormItem>
-                      <FormLabel>Region</FormLabel>
+                      <FormLabel>Región</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
@@ -176,7 +176,7 @@ export default function AddDomain() {
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select region" />
+                            <SelectValue placeholder="Seleccionar región" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -191,7 +191,7 @@ export default function AddDomain() {
                         <FormMessage />
                       ) : (
                         <FormDescription>
-                          Select the region from where the email is sent{" "}
+                          Selecciona la región desde donde se envía el correo{" "}
                         </FormDescription>
                       )}
                     </FormItem>
@@ -207,7 +207,7 @@ export default function AddDomain() {
                     addDomainMutation.isPending || limitsQuery.isLoading
                   }
                 >
-                  {addDomainMutation.isPending ? "Adding..." : "Add"}
+                  {addDomainMutation.isPending ? "Agregando..." : "Agregar"}
                 </Button>
               </div>
             </form>

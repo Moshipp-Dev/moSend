@@ -28,7 +28,7 @@ export default function DomainsList() {
             <DomainItem key={domain.id} domain={domain} />
           ))
         ) : (
-          <div className="text-center mt-20">No domains Added</div>
+          <div className="text-center mt-20">No hay dominios agregados</div>
         )}
       </div>
     </div>
@@ -85,7 +85,7 @@ const DomainItem: React.FC<{ domain: Domain }> = ({ domain }) => {
 
           <div className="flex flex-col gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">Created at</p>
+              <p className="text-sm text-muted-foreground">Creado el</p>
               <p className="text-sm">
                 {formatDistanceToNow(new Date(domain.createdAt), {
                   addSuffix: true,
@@ -93,14 +93,14 @@ const DomainItem: React.FC<{ domain: Domain }> = ({ domain }) => {
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Region</p>
+              <p className="text-sm text-muted-foreground">Región</p>
 
               <p className="text-sm flex items-center gap-2">{domain.region}</p>
             </div>
           </div>
           <div className="flex flex-col gap-6">
             <div className="flex gap-2 items-center">
-              <p className="text-sm">Click tracking</p>
+              <p className="text-sm">Seguimiento de clics</p>
               <Switch
                 checked={clickTracking}
                 onCheckedChange={handleClickTrackingChange}
@@ -108,7 +108,7 @@ const DomainItem: React.FC<{ domain: Domain }> = ({ domain }) => {
               />
             </div>
             <div className="flex gap-2 items-center">
-              <p className="text-sm">Open tracking</p>
+              <p className="text-sm">Seguimiento de apertura</p>
               <Switch
                 checked={openTracking}
                 onCheckedChange={handleOpenTrackingChange}

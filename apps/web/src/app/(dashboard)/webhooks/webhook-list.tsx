@@ -44,7 +44,7 @@ export function WebhookList() {
         onSuccess: async () => {
           await utils.webhook.list.invalidate();
           toast.success(
-            `Webhook ${newStatus === "ACTIVE" ? "resumed" : "paused"}`,
+            `Webhook ${newStatus === "ACTIVE" ? "reanudado" : "pausado"}`,
           );
         },
         onError: (error) => {
@@ -61,11 +61,11 @@ export function WebhookList() {
           <TableHeader>
             <TableRow className="bg-muted/30">
               <TableHead className="rounded-tl-xl">URL</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last success</TableHead>
-              <TableHead>Last failure</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Último éxito</TableHead>
+              <TableHead>Último error</TableHead>
               <TableHead className="rounded-tr-xl text-right">
-                Actions
+                Acciones
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -82,7 +82,7 @@ export function WebhookList() {
             ) : webhooks.length === 0 ? (
               <TableRow className="h-32">
                 <TableCell colSpan={5} className="py-4 text-center">
-                  <p>No webhooks configured</p>
+                  <p>No hay webhooks configurados</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -103,14 +103,14 @@ export function WebhookList() {
                       ? formatDistanceToNow(webhook.lastSuccessAt, {
                           addSuffix: true,
                         })
-                      : "Never"}
+                      : "Nunca"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {webhook.lastFailureAt
                       ? formatDistanceToNow(webhook.lastFailureAt, {
                           addSuffix: true,
                         })
-                      : "Never"}
+                      : "Nunca"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div
@@ -181,7 +181,7 @@ function WebhookActions({
             }}
           >
             <Edit3 className="mr-2 h-4 w-4" />
-            Edit
+            Editar
           </Button>
           <Button
             variant="ghost"
@@ -196,12 +196,12 @@ function WebhookActions({
             {canActivate ? (
               <>
                 <Play className="mr-2 h-4 w-4" />
-                {isAutoDisabled ? "Re-enable" : "Resume"}
+                {isAutoDisabled ? "Reactivar" : "Reanudar"}
               </>
             ) : (
               <>
                 <Pause className="mr-2 h-4 w-4" />
-                Pause
+                Pausar
               </>
             )}
           </Button>

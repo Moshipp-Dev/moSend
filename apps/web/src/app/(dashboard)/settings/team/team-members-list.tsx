@@ -38,11 +38,11 @@ export default function TeamMembersList() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              <TableHead className="rounded-tl-xl">User</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Joined</TableHead>
-              <TableHead className="rounded-tr-xl">Actions</TableHead>
+              <TableHead className="rounded-tl-xl">Usuario</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Unido</TableHead>
+              <TableHead className="rounded-tr-xl">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -62,13 +62,20 @@ export default function TeamMembersList() {
                     {member.user?.email || "Unknown user"}
                   </TableCell>
                   <TableCell>
-                    <div className=" rounded capitalize py-1 text-xs">
-                      {member.role.toLowerCase()}
+                    <div className="flex flex-col gap-1">
+                      <div className="rounded capitalize py-1 text-xs">
+                        {member.role.toLowerCase()}
+                      </div>
+                      {member.role === "CLIENT" && member.user?.clientDomainAccesses && member.user.clientDomainAccesses.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          {member.user.clientDomainAccesses.map((a) => a.domain.name).join(", ")}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-center w-[100px] rounded capitalize py-1 text-xs bg-green/15 text-green border border-green/25">
-                      Active
+                      Activo
                     </div>
                   </TableCell>
                   <TableCell>
@@ -83,6 +90,7 @@ export default function TeamMembersList() {
                           teamUser={{
                             ...member,
                             userId: String(member.userId),
+                            assignedDomainIds: member.user?.clientDomainAccesses?.map((a) => a.domainId) ?? [],
                           }}
                         />
                       ) : null}
@@ -103,7 +111,7 @@ export default function TeamMembersList() {
             ) : (
               <TableRow className="h-32">
                 <TableCell colSpan={5} className="text-center py-4">
-                  No team members found
+                  No hay miembros en el equipo
                 </TableCell>
               </TableRow>
             )}
@@ -123,7 +131,7 @@ export default function TeamMembersList() {
                     </TableCell>
                     <TableCell>
                       <div className="text-center w-[100px] rounded capitalize py-1 text-xs bg-yellow/15 text-yellow border border-yellow/25">
-                        Pending
+                        Pendiente
                       </div>
                     </TableCell>
                     <TableCell>

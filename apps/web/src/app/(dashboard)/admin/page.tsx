@@ -7,7 +7,7 @@ export default function AdminSesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">SES Configurations</h2>
+        <h2 className="text-xl font-semibold">Configuraciones SES</h2>
         <AddSesConfiguration />
       </div>
       <SesConfigurations />

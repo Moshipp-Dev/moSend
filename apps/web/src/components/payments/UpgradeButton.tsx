@@ -18,7 +18,7 @@ export const UpgradeButton = () => {
       className="mt-4 w-[120px]"
       disabled={checkoutMutation.isPending}
     >
-      {checkoutMutation.isPending ? <Spinner className="w-4 h-4" /> : "Upgrade"}
+      {checkoutMutation.isPending ? <Spinner className="w-4 h-4" /> : "Actualizar"}
     </Button>
   );
 };

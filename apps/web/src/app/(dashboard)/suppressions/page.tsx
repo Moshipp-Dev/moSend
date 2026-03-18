@@ -17,15 +17,15 @@ export default function SuppressionsPage() {
     <div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-10">
-        <H1>Suppression List</H1>
+        <H1>Lista de supresión</H1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowBulkAddDialog(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Bulk Add
+            Agregar en masa
           </Button>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Suppression
+            Agregar supresión
           </Button>
         </div>
       </div>

@@ -8,7 +8,7 @@ export default function ContactsPage() {
   return (
     <div>
       <div className="flex justify-between items-center">
-        <H1>Campaigns</H1>
+        <H1>Campañas</H1>
         <CreateCampaign />
       </div>
       <CampaignList />

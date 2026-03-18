@@ -27,13 +27,13 @@ export default function ApiList() {
         <Table className="">
           <TableHeader className="">
             <TableRow className=" bg-muted/30">
-              <TableHead className="rounded-tl-xl">Name</TableHead>
+              <TableHead className="rounded-tl-xl">Nombre</TableHead>
               <TableHead>Token</TableHead>
-              <TableHead>Permission</TableHead>
-              <TableHead>Domain Access</TableHead>
-              <TableHead>Last used</TableHead>
-              <TableHead>Created at</TableHead>
-              <TableHead className="rounded-tr-xl">Action</TableHead>
+              <TableHead>Permiso</TableHead>
+              <TableHead>Acceso a dominio</TableHead>
+              <TableHead>Último uso</TableHead>
+              <TableHead>Creada el</TableHead>
+              <TableHead className="rounded-tr-xl">Acción</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -49,7 +49,7 @@ export default function ApiList() {
             ) : apiKeysQuery.data?.length === 0 ? (
               <TableRow className="h-32">
                 <TableCell colSpan={7} className="text-center py-4">
-                  <p>No API keys added</p>
+                  <p>No hay claves API agregadas</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -60,15 +60,15 @@ export default function ApiList() {
                   <TableCell>{apiKey.permission}</TableCell>
                   <TableCell>
                     {apiKey.domainId
-                      ? apiKey.domain?.name ?? "Domain removed"
-                      : "All domains"}
+                      ? apiKey.domain?.name ?? "Dominio eliminado"
+                      : "Todos los dominios"}
                   </TableCell>
                   <TableCell>
                     {apiKey.lastUsed
                       ? formatDistanceToNow(apiKey.lastUsed, {
                           addSuffix: true,
                         })
-                      : "Never"}
+                      : "Nunca"}
                   </TableCell>
                   <TableCell>
                     {formatDistanceToNow(apiKey.createdAt, {

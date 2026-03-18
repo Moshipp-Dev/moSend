@@ -33,7 +33,7 @@ export const DeleteTeamMember: React.FC<{
         onSuccess: async () => {
           utils.team.getTeamUsers.invalidate();
           setOpen(false);
-          toast.success("Team member removed successfully");
+          toast.success("Miembro eliminado exitosamente");
         },
         onError: async (error) => {
           toast.error(error.message);
@@ -59,17 +59,17 @@ export const DeleteTeamMember: React.FC<{
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {self ? "Leave Team" : "Remove Team Member"}
+            {self ? "Abandonar equipo" : "Eliminar miembro"}
           </DialogTitle>
           <DialogDescription>
             {self
-              ? "Are you sure you want to leave the team? This action cannot be undone."
-              : `Are you sure you want to remove ${teamUser.email} from the team? This action cannot be undone.`}
+              ? "¿Estás seguro de que deseas abandonar el equipo? Esta acción no se puede deshacer."
+              : `¿Estás seguro de que deseas eliminar a ${teamUser.email} del equipo? Esta acción no se puede deshacer.`}
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end gap-4 mt-6">
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="destructive"
@@ -77,7 +77,7 @@ export const DeleteTeamMember: React.FC<{
             isLoading={deleteTeamUserMutation.isPending}
             className="w-[150px]"
           >
-            {self ? "Leave" : "Remove"}
+            {self ? "Salir" : "Eliminar"}
           </Button>
         </div>
       </DialogContent>

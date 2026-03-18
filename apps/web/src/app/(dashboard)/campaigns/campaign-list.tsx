@@ -60,7 +60,7 @@ export default function CampaignList() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search campaigns..."
+            placeholder="Buscar campañas..."
             value={searchTerm || ""}
             onChange={(e) => onSearch(e.target.value)}
             className="pl-10"
@@ -73,29 +73,29 @@ export default function CampaignList() {
           onValueChange={(val) => setStatus(val === "all" ? null : val)}
         >
           <SelectTrigger className="w-[180px] capitalize">
-            {status ? status.toLowerCase() : "All statuses"}
+            {status ? status.toLowerCase() : "Todos los estados"}
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all" className=" capitalize">
-              All statuses
+              Todos los estados
             </SelectItem>
             <SelectItem value={CampaignStatus.DRAFT} className=" capitalize">
-              Draft
+              Borrador
             </SelectItem>
             <SelectItem
               value={CampaignStatus.SCHEDULED}
               className=" capitalize"
             >
-              Scheduled
+              Programada
             </SelectItem>
             <SelectItem value={CampaignStatus.RUNNING} className=" capitalize">
-              Running
+              En ejecución
             </SelectItem>
             <SelectItem value={CampaignStatus.PAUSED} className=" capitalize">
-              Paused
+              Pausada
             </SelectItem>
             <SelectItem value={CampaignStatus.SENT} className=" capitalize">
-              Sent
+              Enviada
             </SelectItem>
           </SelectContent>
         </Select>
@@ -112,10 +112,10 @@ export default function CampaignList() {
           ))
         ) : (
           <div className="text-center py-12 text-muted-foreground">
-            No campaigns found
+            No se encontraron campañas
             {(search || status) && (
               <div className="text-sm mt-2">
-                Try adjusting your search or filters
+                Intenta ajustar tu búsqueda o filtros
               </div>
             )}
           </div>
@@ -127,14 +127,14 @@ export default function CampaignList() {
           onClick={() => setPage((pageNumber - 1).toString())}
           disabled={pageNumber === 1}
         >
-          Previous
+          Anterior
         </Button>
         <Button
           size="sm"
           onClick={() => setPage((pageNumber + 1).toString())}
           disabled={pageNumber >= (campaignsQuery.data?.totalPage ?? 0)}
         >
-          Next
+          Siguiente
         </Button>
       </div>
     </div>

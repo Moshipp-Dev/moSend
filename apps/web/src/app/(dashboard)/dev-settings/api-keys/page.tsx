@@ -8,7 +8,7 @@ export default function ApiKeysPage() {
   return (
     <div>
       <div className="flex justify-between items-center">
-        <H1>API Keys</H1>
+        <H1>Claves API</H1>
         <AddApiKey />
       </div>
       <ApiList />

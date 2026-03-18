@@ -24,13 +24,28 @@ export default function CampaignStatusBadge({
     }
   };
 
+  const getStatusLabel = (status: CampaignStatus) => {
+    switch (status) {
+      case CampaignStatus.DRAFT:
+        return "Borrador";
+      case CampaignStatus.SENT:
+        return "Enviada";
+      case CampaignStatus.RUNNING:
+        return "En ejecución";
+      case CampaignStatus.PAUSED:
+        return "Pausada";
+      case CampaignStatus.SCHEDULED:
+        return "Programada";
+    }
+  };
+
   return (
     <div
       className={`text-center min-w-[110px] rounded capitalize py-1 px-3 text-xs ${getStatusColor(
         status,
       )}`}
     >
-      {status.toLowerCase()}
+      {getStatusLabel(status)}
     </div>
   );
 }

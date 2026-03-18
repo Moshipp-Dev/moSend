@@ -68,7 +68,7 @@ function ContactBookDetailActions({
         <PopoverTrigger asChild>
           <Button variant="default" className="gap-1">
             <MoreVertical className="h-4 -ml-2" />
-            Actions
+            Acciones
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-52 rounded-xl p-1" align="end">
@@ -83,7 +83,7 @@ function ContactBookDetailActions({
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add contacts
+              Agregar contactos
             </Button>
             <Button
               variant="ghost"
@@ -95,7 +95,7 @@ function ContactBookDetailActions({
               }}
             >
               <Upload className="mr-2 h-4 w-4" />
-              Bulk upload
+              Carga masiva
             </Button>
             {contactBookName ? (
               <Button
@@ -108,7 +108,7 @@ function ContactBookDetailActions({
                 }}
               >
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                Editar
               </Button>
             ) : null}
             {contactBookName ? (
@@ -122,7 +122,7 @@ function ContactBookDetailActions({
                 }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                Eliminar
               </Button>
             ) : null}
           </div>
@@ -217,7 +217,7 @@ export default function ContactsPage({
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
                   <Link href="/contacts" className="text-xl">
-                    Contact books
+                    Libretas de contactos
                   </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -282,14 +282,14 @@ export default function ContactsPage({
                 <div className="p-2 bg-muted rounded-md">
                   <Users className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <CardTitle className="text-sm font-medium">Metrics</CardTitle>
+                <CardTitle className="text-sm font-medium">Métricas</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <Users className="w-3.5 h-3.5" />
-                  Total Contacts
+                  Total de contactos
                 </span>
                 <span className="text-lg font-semibold font-mono">
                   {contactBookDetailQuery.data?.totalContacts !== undefined
@@ -300,7 +300,7 @@ export default function ContactsPage({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <MailX className="w-3.5 h-3.5" />
-                  Unsubscribed
+                  Desuscritos
                 </span>
                 <span className="text-lg font-semibold font-mono text-destructive">
                   {contactBookDetailQuery.data?.unsubscribedContacts !==
@@ -319,12 +319,12 @@ export default function ContactsPage({
                 <div className="p-2 bg-muted rounded-md">
                   <Hash className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <CardTitle className="text-sm font-medium">Details</CardTitle>
+                <CardTitle className="text-sm font-medium">Detalles</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Contact book ID</p>
+                <p className="text-xs text-muted-foreground">ID de la libreta</p>
                 <TextWithCopyButton
                   value={contactBookId}
                   alwaysShowCopy
@@ -334,7 +334,7 @@ export default function ContactsPage({
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  Created
+                  Creada
                 </p>
                 <p className="text-sm">
                   {contactBookDetailQuery.data?.createdAt
@@ -375,7 +375,7 @@ export default function ContactsPage({
                   <Megaphone className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <CardTitle className="text-sm font-medium">
-                  Recent Campaigns
+                  Campañas recientes
                 </CardTitle>
               </div>
             </CardHeader>
@@ -383,7 +383,7 @@ export default function ContactsPage({
               {!contactBookDetailQuery.isLoading &&
               contactBookDetailQuery.data?.campaigns.length === 0 ? (
                 <div className="text-muted-foreground text-sm py-4 text-center">
-                  No campaigns yet.
+                  Aún no hay campañas.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -417,7 +417,7 @@ export default function ContactsPage({
                       href="/campaigns"
                       className="flex items-center justify-center p-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      View all campaigns
+                      Ver todas las campañas
                     </Link>
                   )}
                 </div>
@@ -436,10 +436,10 @@ export default function ContactsPage({
                 </div>
                 <div>
                   <CardTitle className="text-base font-medium">
-                    Double Opt-in
+                    Doble confirmación
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Require email confirmation for new contacts
+                    Requerir confirmación por email para nuevos contactos
                   </p>
                 </div>
               </div>
@@ -461,14 +461,14 @@ export default function ContactsPage({
             <div className="flex items-center gap-4">
               <p className="text-sm text-muted-foreground">
                 {contactBookDetailQuery.data?.doubleOptInEnabled
-                  ? "New contacts will receive a confirmation email before being added to this list."
-                  : "New contacts will be immediately added to this list without confirmation."}
+                  ? "Los nuevos contactos recibirán un email de confirmación antes de ser agregados a esta lista."
+                  : "Los nuevos contactos serán agregados inmediatamente a esta lista sin confirmación."}
               </p>
               <Button asChild variant="outline" size="sm">
                 <Link href={`/contacts/${contactBookId}/double-opt-in`}>
                   {contactBookDetailQuery.data?.doubleOptInEnabled
-                    ? "Edit confirmation email"
-                    : "Preview confirmation email"}
+                    ? "Editar email de confirmación"
+                    : "Vista previa del email de confirmación"}
                 </Link>
               </Button>
             </div>

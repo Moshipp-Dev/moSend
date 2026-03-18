@@ -25,7 +25,7 @@ export const TogglePauseCampaign: React.FC<{
           onSuccess: () => {
             utils.campaign.getCampaigns.invalidate();
             utils.campaign.getCampaign.invalidate();
-            toast.success("Campaign resumed");
+            toast.success("Campaña reanudada");
           },
         }
       );
@@ -36,7 +36,7 @@ export const TogglePauseCampaign: React.FC<{
           onSuccess: () => {
             utils.campaign.getCampaigns.invalidate();
             utils.campaign.getCampaign.invalidate();
-            toast.success("Campaign paused");
+            toast.success("Campaña pausada");
           },
         }
       );
@@ -61,7 +61,7 @@ export const TogglePauseCampaign: React.FC<{
           className="p-0 hover:bg-transparent"
           onClick={onToggle}
           disabled={pending}
-          title={isPaused ? "Resume" : "Pause"}
+          title={isPaused ? "Reanudar" : "Pausar"}
         >
           {isPaused ? (
             <Play className="h-[18px] w-[18px] text-green/80" />
@@ -75,17 +75,17 @@ export const TogglePauseCampaign: React.FC<{
           className="gap-2 border-primary"
           onClick={onToggle}
           disabled={pending}
-          title={isPaused ? "Resume" : "Pause"}
+          title={isPaused ? "Reanudar" : "Pausar"}
         >
           {isPaused ? (
             <>
               <Play className="h-[18px] w-[18px]" />
-              <span>Resume</span>
+              <span>Reanudar</span>
             </>
           ) : (
             <>
               <Pause className="h-[18px] w-[18px] " />
-              <span>Pause</span>
+              <span>Pausar</span>
             </>
           )}
         </Button>

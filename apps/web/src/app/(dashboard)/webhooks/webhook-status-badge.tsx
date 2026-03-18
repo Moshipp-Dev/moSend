@@ -6,13 +6,13 @@ export function WebhookStatusBadge({ status }: { status: WebhookStatus }) {
 
   if (status === WebhookStatus.ACTIVE) {
     badgeColor = "bg-green/15 text-green border border-green/20";
-    label = "Active";
+    label = "Activo";
   } else if (status === WebhookStatus.PAUSED) {
     badgeColor = "bg-yellow/15 text-yellow border border-yellow/20";
-    label = "Paused";
+    label = "Pausado";
   } else if (status === WebhookStatus.AUTO_DISABLED) {
     badgeColor = "bg-red/15 text-red border border-red/20";
-    label = "Auto disabled";
+    label = "Deshabilitado automáticamente";
   }
 
   return (

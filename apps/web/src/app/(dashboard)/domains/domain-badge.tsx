@@ -24,7 +24,7 @@ export const DomainStatusBadge: React.FC<{ status: DomainStatus }> = ({
       className={` text-center w-[120px] capitalize rounded-md py-1 justify-center flex items-center ${badgeColor}`}
     >
       <span className="text-xs">
-        {status === "SUCCESS" ? "Verified" : status.toLowerCase()}
+        {status === "SUCCESS" ? "Verificado" : status === "FAILED" ? "Fallido" : status === "PENDING" ? "Pendiente" : status === "TEMPORARY_FAILURE" ? "Fallo temporal" : status.toLowerCase()}
       </span>
     </div>
   );
