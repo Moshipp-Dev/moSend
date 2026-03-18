@@ -108,7 +108,7 @@ const settingsItems = [
     icon: Webhook,
   },
   {
-    title: "Configuración de desarrollador",
+    title: "Developer",
     url: "/dev-settings",
     icon: Code,
   },

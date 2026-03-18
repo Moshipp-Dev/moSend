@@ -13,9 +13,21 @@ export const dashboardRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { team } = ctx;
 
-      const response = await emailTimeSeries({team, days: input.days, domain: input.domain})
+      let domainId = input.domain;
+      if (ctx.teamUser.role === "CLIENT") {
+        const accesses = await ctx.db.clientDomainAccess.findMany({
+          where: { userId: ctx.teamUser.userId, teamId: team.id },
+          select: { domainId: true },
+        });
+        const clientDomainIds = accesses.map((a) => a.domainId);
+        // Only allow filtering within assigned domains; default to first assigned
+        domainId = input.domain && clientDomainIds.includes(input.domain)
+          ? input.domain
+          : clientDomainIds[0];
+      }
 
-      return response
+      const response = await emailTimeSeries({ team, days: input.days, domain: domainId });
+      return response;
     }),
 
   reputationMetricsData: teamProcedure
@@ -26,8 +38,20 @@ export const dashboardRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const { team } = ctx;
-      const response = await reputationMetricsData({team, domain: input.domain})
 
+      let domainId = input.domain;
+      if (ctx.teamUser.role === "CLIENT") {
+        const accesses = await ctx.db.clientDomainAccess.findMany({
+          where: { userId: ctx.teamUser.userId, teamId: team.id },
+          select: { domainId: true },
+        });
+        const clientDomainIds = accesses.map((a) => a.domainId);
+        domainId = input.domain && clientDomainIds.includes(input.domain)
+          ? input.domain
+          : clientDomainIds[0];
+      }
+
+      const response = await reputationMetricsData({ team, domain: domainId });
       return response;
     }),
 });

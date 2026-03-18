@@ -9,7 +9,8 @@ type EmailTimeSeries = {
 };
 
 export async function emailTimeSeries(input: EmailTimeSeries) {
-  const days = input.days !== 7 ? 30 : 7;
+  const allowedDays = [7, 30, 60, 90, 180];
+  const days = allowedDays.includes(input.days ?? 30) ? (input.days ?? 30) : 30;
   const { domain, team } = input;
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);

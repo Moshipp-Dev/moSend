@@ -25,24 +25,22 @@ export default function DashboardFilters({
   const { data: domainsQuery } = api.domain.domains.useQuery();
 
   const handleDomain = (val: string) => {
-    setDomain(val === "All Domains" ? null : val);
+    setDomain(val === "todos" ? null : val);
   };
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <Select
-        value={domain ?? "All Domains"}
+        value={domain ?? "todos"}
         onValueChange={(val) => handleDomain(val)}
       >
         <SelectTrigger className="w-full sm:w-[180px]">
           {domain
             ? domainsQuery?.find((d) => d.id === Number(domain))?.name
-            : "All Domains"}
+            : "Todos los dominios"}
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="All Domains" className="capitalize">
-            All Domains
-          </SelectItem>
+          <SelectItem value="todos">Todos los dominios</SelectItem>
           {domainsQuery &&
             domainsQuery.map((domain) => (
               <SelectItem key={domain.id} value={domain.id.toString()}>
@@ -54,10 +52,19 @@ export default function DashboardFilters({
       <Tabs value={days || "30"} onValueChange={(value) => setDays(value)}>
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="7" className="flex-1 sm:flex-none">
-            7 Days
+            7 días
           </TabsTrigger>
           <TabsTrigger value="30" className="flex-1 sm:flex-none">
-            30 Days
+            30 días
+          </TabsTrigger>
+          <TabsTrigger value="60" className="flex-1 sm:flex-none">
+            60 días
+          </TabsTrigger>
+          <TabsTrigger value="90" className="flex-1 sm:flex-none">
+            90 días
+          </TabsTrigger>
+          <TabsTrigger value="180" className="flex-1 sm:flex-none">
+            180 días
           </TabsTrigger>
         </TabsList>
       </Tabs>
