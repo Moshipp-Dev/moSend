@@ -71,11 +71,13 @@ const generalItems = [
     title: "Plantillas",
     url: "/templates",
     icon: LayoutTemplate,
+    clientHidden: true,
   },
   {
     title: "Supresiones",
     url: "/suppressions",
     icon: UserRoundX,
+    clientHidden: true,
   },
 ];
 
@@ -138,7 +140,7 @@ export function AppSidebar() {
         <SidebarGroupLabel>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-foreground font-mono">
-              useSend
+              moSend
             </span>
             <Badge variant="outline">Beta</Badge>
           </div>
@@ -152,6 +154,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {generalItems.map((item) => {
+                if (currentIsClient && item.clientHidden) return null;
                 const isActive = pathname?.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -210,7 +213,7 @@ export function AppSidebar() {
                 const isActive = pathname?.startsWith(item.url);
 
                 // Hide webhooks, developer settings and admin from CLIENT users
-                if (currentIsClient && (item.url === "/webhooks" || item.url === "/admin")) {
+                if (currentIsClient && (item.url === "/webhooks" || item.url === "/admin" || item.url === "/settings")) {
                   return null;
                 }
 
@@ -263,14 +266,16 @@ export function AppSidebar() {
                 />
               </SidebarMenuItem>
             ) : null}
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Documentación">
-                <Link href="https://docs.usesend.com" target="_blank">
-                  <BookOpenText />
-                  <span>Documentación</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {!currentIsClient && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Documentación">
+                  <Link href="https://docs.usesend.com" target="_blank">
+                    <BookOpenText />
+                    <span>Documentación</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroupContent>
         {isSelfHosted() && <VersionInfo />}

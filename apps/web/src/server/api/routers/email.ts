@@ -94,6 +94,16 @@ export const emailRouter = createTRPCRouter({
       const limit = DEFAULT_QUERY_LIMIT;
       const offset = (page - 1) * limit;
 
+      // CLIENT: override domain filter to only their assigned domains
+      let clientDomainIds: number[] | undefined;
+      if (ctx.teamUser.role === "CLIENT") {
+        const accesses = await ctx.db.clientDomainAccess.findMany({
+          where: { userId: ctx.teamUser.userId, teamId: ctx.team.id },
+          select: { domainId: true },
+        });
+        clientDomainIds = accesses.map((a) => a.domainId);
+      }
+
       const emails = await db.$queryRaw<Array<Email>>`
         SELECT
           id,
@@ -105,7 +115,7 @@ export const emailRouter = createTRPCRouter({
         FROM "Email"
         WHERE "teamId" = ${ctx.team.id}
         ${input.status ? Prisma.sql`AND "latestStatus"::text = ${input.status}` : Prisma.sql``}
-        ${input.domain ? Prisma.sql`AND "domainId" = ${input.domain}` : Prisma.sql``}
+        ${clientDomainIds ? Prisma.sql`AND "domainId" = ANY(${clientDomainIds}::int[])` : input.domain ? Prisma.sql`AND "domainId" = ${input.domain}` : Prisma.sql``}
         ${input.apiId ? Prisma.sql`AND "apiId" = ${input.apiId}` : Prisma.sql``}
         ${
           input.search
@@ -136,6 +146,16 @@ export const emailRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      // CLIENT: override domain filter to only their assigned domains
+      let clientDomainIds: number[] | undefined;
+      if (ctx.teamUser.role === "CLIENT") {
+        const accesses = await ctx.db.clientDomainAccess.findMany({
+          where: { userId: ctx.teamUser.userId, teamId: ctx.team.id },
+          select: { domainId: true },
+        });
+        clientDomainIds = accesses.map((a) => a.domainId);
+      }
+
       const emails = await db.$queryRaw<
         Array<{
           to: string[];
@@ -168,9 +188,11 @@ export const emailRouter = createTRPCRouter({
             : Prisma.sql``
         }
         ${
-          input.domain
-            ? Prisma.sql`AND e."domainId" = ${input.domain}`
-            : Prisma.sql``
+          clientDomainIds
+            ? Prisma.sql`AND e."domainId" = ANY(${clientDomainIds}::int[])`
+            : input.domain
+              ? Prisma.sql`AND e."domainId" = ${input.domain}`
+              : Prisma.sql``
         }
         ${
           input.apiId
