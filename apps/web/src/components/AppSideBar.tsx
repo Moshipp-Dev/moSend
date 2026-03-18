@@ -304,6 +304,7 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const { currentIsClient } = useTeam();
 
   return (
     <SidebarMenu>
@@ -366,18 +367,22 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link href="/settings/team">
-                  <UsersIcon />
-                  Equipo
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <GaugeIcon />
-                  Uso
-                </Link>
-              </DropdownMenuItem>
+              {!currentIsClient && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/team">
+                      <UsersIcon />
+                      Equipo
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <GaugeIcon />
+                      Uso
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <div className="px-2 py-0.5">
                 <ThemeSwitcher />
               </div>
