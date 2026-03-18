@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@usesend/ui/src/tabs";
 import { useUrlState } from "~/hooks/useUrlState";
 import {
@@ -8,6 +8,7 @@ import {
   SelectTrigger,
 } from "@usesend/ui/src/select";
 import { api } from "~/trpc/react";
+import { useTeam } from "~/providers/team-context";
 
 interface DashboardFiltersProps {
   days: string;
@@ -23,10 +24,22 @@ export default function DashboardFilters({
   setDomain,
 }: DashboardFiltersProps) {
   const { data: domainsQuery } = api.domain.domains.useQuery();
+  const { currentIsClient } = useTeam();
+
+  // For CLIENT: preselect first domain if none selected
+  useEffect(() => {
+    if (currentIsClient && !domain && domainsQuery && domainsQuery.length > 0) {
+      setDomain(domainsQuery[0]!.id.toString());
+    }
+  }, [currentIsClient, domain, domainsQuery, setDomain]);
 
   const handleDomain = (val: string) => {
     setDomain(val === "todos" ? null : val);
   };
+
+  const selectedDomainName = domain
+    ? domainsQuery?.find((d) => d.id === Number(domain))?.name
+    : "Todos los dominios";
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -35,12 +48,12 @@ export default function DashboardFilters({
         onValueChange={(val) => handleDomain(val)}
       >
         <SelectTrigger className="w-full sm:w-[180px]">
-          {domain
-            ? domainsQuery?.find((d) => d.id === Number(domain))?.name
-            : "Todos los dominios"}
+          {selectedDomainName}
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="todos">Todos los dominios</SelectItem>
+          {!currentIsClient && (
+            <SelectItem value="todos">Todos los dominios</SelectItem>
+          )}
           {domainsQuery &&
             domainsQuery.map((domain) => (
               <SelectItem key={domain.id} value={domain.id.toString()}>
