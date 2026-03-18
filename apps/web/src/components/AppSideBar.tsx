@@ -210,7 +210,7 @@ export function AppSidebar() {
                 const isActive = pathname?.startsWith(item.url);
 
                 // Hide webhooks, developer settings and admin from CLIENT users
-                if (currentIsClient && (item.url === "/webhooks" || item.url === "/dev-settings" || item.url === "/admin")) {
+                if (currentIsClient && (item.url === "/webhooks" || item.url === "/admin")) {
                   return null;
                 }
 

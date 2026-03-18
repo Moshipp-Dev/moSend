@@ -11,7 +11,7 @@ export default function ApiKeysPage({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentIsAdmin } = useTeam();
+  const { currentIsAdmin, currentIsClient } = useTeam();
 
   return (
     <div>
@@ -25,7 +25,9 @@ export default function ApiKeysPage({
             Billing
           </SettingsNavButton>
         ) : null}
-        <SettingsNavButton href="/settings/team">Team</SettingsNavButton>
+        {!currentIsClient && (
+          <SettingsNavButton href="/settings/team">Equipo</SettingsNavButton>
+        )}
       </div>
       <div className="mt-8">{children}</div>
     </div>
