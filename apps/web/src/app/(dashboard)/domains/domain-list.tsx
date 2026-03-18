@@ -9,9 +9,11 @@ import React from "react";
 import { StatusIndicator } from "./status-indicator";
 import { DomainStatusBadge } from "./domain-badge";
 import Spinner from "@usesend/ui/src/spinner";
+import { useTeam } from "~/providers/team-context";
 
 export default function DomainsList() {
   const domainsQuery = api.domain.domains.useQuery();
+  const { currentIsClient } = useTeam();
 
   return (
     <div className="mt-10">
@@ -25,7 +27,7 @@ export default function DomainsList() {
           </div>
         ) : domainsQuery.data?.length ? (
           domainsQuery.data?.map((domain) => (
-            <DomainItem key={domain.id} domain={domain} />
+            <DomainItem key={domain.id} domain={domain} readOnly={currentIsClient} />
           ))
         ) : (
           <div className="text-center mt-20">No hay dominios agregados</div>
@@ -35,7 +37,7 @@ export default function DomainsList() {
   );
 }
 
-const DomainItem: React.FC<{ domain: Domain }> = ({ domain }) => {
+const DomainItem: React.FC<{ domain: Domain; readOnly?: boolean }> = ({ domain, readOnly = false }) => {
   const updateDomain = api.domain.updateDomain.useMutation();
   const utils = api.useUtils();
 
@@ -103,7 +105,8 @@ const DomainItem: React.FC<{ domain: Domain }> = ({ domain }) => {
               <p className="text-sm">Seguimiento de clics</p>
               <Switch
                 checked={clickTracking}
-                onCheckedChange={handleClickTrackingChange}
+                onCheckedChange={readOnly ? undefined : handleClickTrackingChange}
+                disabled={readOnly}
                 className="data-[state=checked]:bg-success"
               />
             </div>
@@ -111,7 +114,8 @@ const DomainItem: React.FC<{ domain: Domain }> = ({ domain }) => {
               <p className="text-sm">Seguimiento de apertura</p>
               <Switch
                 checked={openTracking}
-                onCheckedChange={handleOpenTrackingChange}
+                onCheckedChange={readOnly ? undefined : handleOpenTrackingChange}
+                disabled={readOnly}
                 className="data-[state=checked]:bg-success"
               />
             </div>
