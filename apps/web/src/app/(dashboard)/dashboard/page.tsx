@@ -14,12 +14,12 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useUrlState("dateTo");
 
   const isCustom = !!dateFrom && !!dateTo;
-  const effectiveDateFrom = isCustom
+  const effectiveDateFrom = (isCustom
     ? dateFrom
-    : (subDays(new Date(), Number(days ?? 30)).toISOString().split("T")[0] as string);
-  const effectiveDateTo = isCustom
+    : subDays(new Date(), Number(days ?? 30)).toISOString().split("T")[0]) as string;
+  const effectiveDateTo = (isCustom
     ? dateTo
-    : (new Date().toISOString().split("T")[0] as string);
+    : new Date().toISOString().split("T")[0]) as string;
 
   return (
     <div>
