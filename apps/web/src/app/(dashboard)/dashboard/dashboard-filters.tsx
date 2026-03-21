@@ -15,7 +15,8 @@ import { Calendar } from "@usesend/ui/src/calendar";
 import { api } from "~/trpc/react";
 import { useTeam } from "~/providers/team-context";
 import { format } from "date-fns";
-import type { DateRange } from "react-day-picker";
+
+type DateRange = { from: Date | undefined; to: Date | undefined };
 
 interface DashboardFiltersProps {
   days: string;
