@@ -19,7 +19,8 @@ import { useTheme } from "@usesend/ui";
 import { useColors } from "./hooks/useColors";
 
 interface EmailChartProps {
-  days: number;
+  dateFrom: string;
+  dateTo: string;
   domain: string | null;
 }
 
@@ -56,11 +57,12 @@ function createRoundedTopShape(
   };
 }
 
-export default function EmailChart({ days, domain }: EmailChartProps) {
+export default function EmailChart({ dateFrom, dateTo, domain }: EmailChartProps) {
   const [selectedMetrics, setSelectedMetrics] = React.useState<StackKey[]>([]);
   const domainId = domain ? Number(domain) : undefined;
   const statusQuery = api.dashboard.emailTimeSeries.useQuery({
-    days: days,
+    dateFrom,
+    dateTo,
     domain: domainId,
   });
 

@@ -30,7 +30,6 @@ import { api } from "~/trpc/react";
 import { useColors } from "./hooks/useColors";
 
 interface ReputationMetricsProps {
-  days: number;
   domain: string | null;
 }
 
@@ -48,7 +47,7 @@ const CustomLabel = ({ value, stroke }: { value: string; stroke: string }) => {
   );
 };
 
-export function ReputationMetrics({ days, domain }: ReputationMetricsProps) {
+export function ReputationMetrics({ domain }: ReputationMetricsProps) {
   const { data: metrics, isLoading } =
     api.dashboard.reputationMetricsData.useQuery({
       domain: domain ? Number(domain) : undefined,

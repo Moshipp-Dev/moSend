@@ -6,7 +6,8 @@ export const dashboardRouter = createTRPCRouter({
   emailTimeSeries: teamProcedure
     .input(
       z.object({
-        days: z.number().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
         domain: z.number().optional(),
       })
     )
@@ -20,13 +21,17 @@ export const dashboardRouter = createTRPCRouter({
           select: { domainId: true },
         });
         const clientDomainIds = accesses.map((a) => a.domainId);
-        // Only allow filtering within assigned domains; default to first assigned
         domainId = input.domain && clientDomainIds.includes(input.domain)
           ? input.domain
           : clientDomainIds[0];
       }
 
-      const response = await emailTimeSeries({ team, days: input.days, domain: domainId });
+      const response = await emailTimeSeries({
+        team,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        domain: domainId,
+      });
       return response;
     }),
 

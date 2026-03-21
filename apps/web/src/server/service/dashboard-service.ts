@@ -1,20 +1,23 @@
 import { db } from "~/server/db";
-import { format, subDays } from "date-fns";
+import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import { Prisma, Team } from "@prisma/client";
 
 type EmailTimeSeries = {
-  days?: number;
+  dateFrom?: string;
+  dateTo?: string;
   domain?: number;
   team: Team;
 };
 
 export async function emailTimeSeries(input: EmailTimeSeries) {
-  const allowedDays = [7, 30, 60, 90, 180];
-  const days = allowedDays.includes(input.days ?? 30) ? (input.days ?? 30) : 30;
   const { domain, team } = input;
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-  const isoStartDate = startDate.toISOString().split("T")[0];
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0] as string;
+
+  const isoStartDate =
+    input.dateFrom ??
+    (subDays(today, 30).toISOString().split("T")[0] as string);
+  const isoEndDate = input.dateTo ?? todayStr;
 
   type DailyEmailUsage = {
     date: string;
@@ -38,6 +41,7 @@ export async function emailTimeSeries(input: EmailTimeSeries) {
     FROM "DailyEmailUsage"
     WHERE "teamId" = ${team.id}
     AND "date" >= ${isoStartDate}
+    AND "date" <= ${isoEndDate}
     ${domain ? Prisma.sql`AND "domainId" = ${domain}` : Prisma.sql``}
     GROUP BY "date"
     ORDER BY "date" ASC
@@ -45,12 +49,13 @@ export async function emailTimeSeries(input: EmailTimeSeries) {
 
   // Fill in any missing dates with 0 values
   const filledResult: DailyEmailUsage[] = [];
-  const endDateObj = new Date();
+  const startDateObj = parseISO(isoStartDate);
+  const endDateObj = parseISO(isoEndDate);
 
-  for (let i = days; i > -1; i--) {
-    const dateStr = subDays(endDateObj, i)
-      .toISOString()
-      .split("T")[0] as string;
+  const dateRange = eachDayOfInterval({ start: startDateObj, end: endDateObj });
+
+  for (const date of dateRange) {
+    const dateStr = date.toISOString().split("T")[0] as string;
     const existingData = result.find((r) => r.date === dateStr);
 
     if (existingData) {
