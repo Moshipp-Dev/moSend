@@ -16,7 +16,7 @@ import { api } from "~/trpc/react";
 import { useTeam } from "~/providers/team-context";
 import { format } from "date-fns";
 
-type DateRange = { from?: Date; to?: Date };
+type DateRange = { from: Date; to?: Date };
 
 interface DashboardFiltersProps {
   days: string;
