@@ -16,7 +16,7 @@ import { api } from "~/trpc/react";
 import { useTeam } from "~/providers/team-context";
 import { format } from "date-fns";
 
-type DateRange = { from: Date; to?: Date };
+type DateRange = { from: Date | undefined; to?: Date };
 
 interface DashboardFiltersProps {
   days: string;
@@ -65,9 +65,11 @@ export default function DashboardFilters({
   };
 
   const handleRangeSelect = (range: DateRange | undefined) => {
-    if (range?.from && range?.to) {
-      setDateFrom(range.from.toISOString().split("T")[0]!);
-      setDateTo(range.to.toISOString().split("T")[0]!);
+    const from = range?.from;
+    const to = range?.to;
+    if (from && to) {
+      setDateFrom(from.toISOString().split("T")[0]!);
+      setDateTo(to.toISOString().split("T")[0]!);
       setCalendarOpen(false);
     }
   };
