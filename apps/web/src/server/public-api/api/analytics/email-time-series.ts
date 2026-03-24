@@ -1,4 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
+import { subDays } from "date-fns";
 import { PublicAPIApp } from "~/server/public-api/hono";
 import { emailTimeSeries as emailTimeSeriesService } from "~/server/service/dashboard-service";
 
@@ -54,12 +55,16 @@ function emailTimeSeries(app: PublicAPIApp) {
     const daysParam = c.req.query("days");
     const domainIdParam = c.req.query("domainId");
 
-    const days = daysParam ? Number(daysParam) : undefined;
+    const days = daysParam ? Number(daysParam) : 30;
     const domain =
       team.apiKey.domainId ??
       (domainIdParam ? Number(domainIdParam) : undefined);
 
-    const data = await emailTimeSeriesService({ days, domain, team });
+    const today = new Date();
+    const dateFrom = subDays(today, days).toISOString().split("T")[0] as string;
+    const dateTo = today.toISOString().split("T")[0] as string;
+
+    const data = await emailTimeSeriesService({ dateFrom, dateTo, domain, team });
 
     return c.json(data);
   });
