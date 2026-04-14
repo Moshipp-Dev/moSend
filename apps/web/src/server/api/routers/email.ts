@@ -265,6 +265,7 @@ export const emailRouter = createTRPCRouter({
         text: true,
         html: true,
         scheduledAt: true,
+        attachments: true,
       },
     });
 

@@ -426,10 +426,19 @@ async function executeEmail(job: QueueEmailJob) {
       `[EmailQueueService]: Email sent`
     );
 
-    // Delete attachments and headers after sending the email
+    // Keep attachment filenames for display, remove base64 content to save storage
+    const attachmentMeta =
+      attachments.length > 0
+        ? JSON.stringify(attachments.map((a) => ({ filename: a.filename })))
+        : null;
     await db.email.update({
       where: { id: email.id },
-      data: { sesEmailId: messageId, text, attachments: null, headers: null },
+      data: {
+        sesEmailId: messageId,
+        text,
+        attachments: attachmentMeta,
+        headers: null,
+      },
     });
   } catch (error: any) {
     await db.emailEvent.create({

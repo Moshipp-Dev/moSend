@@ -21,6 +21,7 @@ import {
   DELIVERY_DELAY_ERRORS,
 } from "@usesend/lib/src/constants/ses-errors";
 import CancelEmail from "./cancel-email";
+import { Paperclip } from "lucide-react";
 import { useEffect } from "react";
 import { useState } from "react";
 
@@ -64,6 +65,35 @@ export default function EmailDetails({ emailId }: { emailId: string }) {
               From: {emailQuery.data?.from}
             </div>
           </div>
+          {emailQuery.data?.attachments
+            ? (() => {
+                const files: { filename: string }[] = JSON.parse(
+                  emailQuery.data.attachments,
+                );
+                if (files.length === 0) return null;
+                return (
+                  <>
+                    <Separator />
+                    <div className="flex gap-2 items-start px-4 py-1">
+                      <span className="w-[100px] text-muted-foreground text-sm shrink-0">
+                        Attachments
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        {files.map((f) => (
+                          <div
+                            key={f.filename}
+                            className="flex items-center gap-1 text-sm"
+                          >
+                            <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span>{f.filename}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()
+            : null}
           {emailQuery.data?.latestStatus === "SCHEDULED" &&
           emailQuery.data?.scheduledAt ? (
             <>
