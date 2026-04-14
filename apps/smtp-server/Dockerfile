@@ -1,6 +1,9 @@
 # Stage 1: Build stage
 FROM node:20-alpine AS builder
 
+# Force full rebuild on each deploy (change this value to bust cache)
+ARG CACHEBUST=2026-04-14
+
 # Install pnpm (package manager) globally
 RUN npm install -g pnpm
 
