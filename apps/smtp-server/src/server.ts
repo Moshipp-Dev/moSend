@@ -68,6 +68,7 @@ function loadCertificates(): { key?: Buffer; cert?: Buffer } {
 const initialCerts = loadCertificates();
 
 const serverOptions: SMTPServerOptions = {
+  banner: "usesend-smtp/1.1.0 attachment-support",
   secure: false,
   key: initialCerts.key,
   cert: initialCerts.cert,
