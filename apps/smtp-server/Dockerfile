@@ -16,7 +16,7 @@ RUN pnpm install
 # Copy the source code
 COPY src/ ./src/
 
-# Build the application
+# Build the application (cache-bust: 2026-04-14)
 RUN pnpm run build
 
 
