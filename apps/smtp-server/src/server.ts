@@ -151,6 +151,7 @@ const serverOptions: SMTPServerOptions = {
 };
 
 function startServers() {
+  console.log("SMTP server version: attachment-support-v2 (2026-04-14)");
   const servers: SMTPServer[] = [];
   const watchers: FSWatcher[] = [];
 
