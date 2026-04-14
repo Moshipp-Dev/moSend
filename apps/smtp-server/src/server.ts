@@ -91,20 +91,29 @@ const serverOptions: SMTPServerOptions = {
       const MAX_ATTACHMENTS = 10;
       const MAX_ATTACHMENT_BYTES = 10485760; // 10 MB (matches server-level size limit)
 
+      console.log(
+        `Parsed email - attachments found: ${parsed.attachments?.length ?? 0}`,
+      );
+
       const attachments =
         parsed.attachments && parsed.attachments.length > 0
           ? parsed.attachments
-              .filter(
-                (att) =>
-                  att.content instanceof Buffer &&
-                  att.size <= MAX_ATTACHMENT_BYTES,
-              )
+              .filter((att) => {
+                const isBuffer = att.content instanceof Buffer;
+                const withinSize = att.size <= MAX_ATTACHMENT_BYTES;
+                console.log(
+                  `Attachment: filename=${att.filename}, size=${att.size}, isBuffer=${isBuffer}, withinSize=${withinSize}`,
+                );
+                return isBuffer && withinSize;
+              })
               .slice(0, MAX_ATTACHMENTS)
               .map((att) => ({
                 filename: att.filename ?? att.contentType ?? "attachment",
                 content: att.content.toString("base64"),
               }))
           : undefined;
+
+      console.log(`Attachments to forward: ${attachments?.length ?? 0}`);
 
       const emailObject = {
         to: Array.isArray(parsed.to)
@@ -115,7 +124,7 @@ const serverOptions: SMTPServerOptions = {
           : parsed.from?.text,
         subject: parsed.subject,
         text: parsed.text,
-        html: parsed.html,
+        html: parsed.html || undefined,
         replyTo: parsed.replyTo?.text,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
       };
