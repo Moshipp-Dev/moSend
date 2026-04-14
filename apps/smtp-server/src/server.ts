@@ -88,6 +88,24 @@ const serverOptions: SMTPServerOptions = {
         return callback(new Error("No API key found in session"));
       }
 
+      const MAX_ATTACHMENTS = 10;
+      const MAX_ATTACHMENT_BYTES = 10485760; // 10 MB (matches server-level size limit)
+
+      const attachments =
+        parsed.attachments && parsed.attachments.length > 0
+          ? parsed.attachments
+              .filter(
+                (att) =>
+                  att.content instanceof Buffer &&
+                  att.size <= MAX_ATTACHMENT_BYTES,
+              )
+              .slice(0, MAX_ATTACHMENTS)
+              .map((att) => ({
+                filename: att.filename ?? att.contentType ?? "attachment",
+                content: att.content.toString("base64"),
+              }))
+          : undefined;
+
       const emailObject = {
         to: Array.isArray(parsed.to)
           ? parsed.to.map((addr) => addr.text).join(", ")
@@ -99,6 +117,7 @@ const serverOptions: SMTPServerOptions = {
         text: parsed.text,
         html: parsed.html,
         replyTo: parsed.replyTo?.text,
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
       };
 
       sendEmailToUseSend(emailObject, session.user)
