@@ -4,16 +4,16 @@
 
 <p align="center" style="margin-top: 20px">
   <p align="center">
-  The Open Source sending infrastructure.
+  The Open Source sending infrastructure — <strong>moSend fork</strong>.
   <br>
-    <a href="https://usesend.com"><strong>Learn more »</strong></a>
+    <a href="https://usesend.com"><strong>Upstream useSend »</strong></a>
     <br />
     <br />
     <a href="https://discord.gg/BU8n8pJv8S">Discord</a>
     .
     <a href="https://usesend.com">Website</a>
     ·
-    <a href="https://github.com/usesend/usesend/issues">Issues</a>
+    <a href="https://github.com/Moshipp-Dev/moSend/issues">Issues</a>
   </p>
 </p>
 
@@ -32,6 +32,8 @@ Currently we only support emails, but we plan to expand to other sending protoco
 
 We are currently in beta!
 
+> **moSend fork** — This repository extends the upstream `usesend/usesend` project with additional features. See [moSend-specific changes](#mosend-specific-changes) below.
+
 ## Features
 
 - [x] Add domains
@@ -40,10 +42,47 @@ We are currently in beta!
 - [x] Dashboard (Delivered, opened, clicked, bounced)
 - [x] Marketing email
 - [x] SMTP support
+- [x] **SMTP attachment forwarding** _(moSend)_
+- [x] **Attachment filenames visible in email detail panel** _(moSend)_
 - [x] Schedule API
 - [x] Webhook support
 - [ ] Inbound email
 - [ ] BYO AWS credentials
+
+## moSend-specific changes
+
+This fork adds the following on top of the upstream `usesend/usesend` codebase:
+
+### 1. SMTP attachments end-to-end
+
+The standalone SMTP relay server (`apps/smtp-server`) previously discarded attachments received over SMTP — it only forwarded `to / from / subject / text / html / replyTo` to the useSend public API. This fork extracts attachments parsed by `mailparser`, encodes them as base64, and includes them in the payload sent to `/api/v1/emails`, so emails sent through the SMTP relay are delivered with their attachments intact.
+
+- **File:** `apps/smtp-server/src/server.ts` — extracts `parsed.attachments` from `mailparser`, filters by `att.content instanceof Buffer` and `att.size <= 10 MB`, caps at the 10 attachment limit enforced by the public API schema, and converts each buffer with `.toString('base64')`.
+- **Startup banner:** the SMTP server now advertises `usesend-smtp/1.1.0 attachment-support` on connection, so the deployed version can be verified without reading the container logs.
+
+### 2. Attachment filenames preserved after send
+
+The outbound email pipeline in `apps/web` previously nulled the `Email.attachments` column immediately after handing the MIME message to SES, which meant attachment information was permanently lost from the dashboard history. This fork keeps the `filename` values (without the base64 content) so the list of files that was sent with each email remains queryable.
+
+- **File:** `apps/web/src/server/service/email-queue-service.ts` — after `sendRawEmail` succeeds, the update writes a filename-only JSON instead of `null`:
+  ```ts
+  const attachmentMeta =
+    attachments.length > 0
+      ? JSON.stringify(attachments.map((a) => ({ filename: a.filename })))
+      : null;
+  ```
+- Storage impact is minimal: only the filenames are persisted, never the file content.
+
+### 3. Attachment list in the dashboard email detail panel
+
+The email detail sheet (opened when you click an email in the dashboard list) now shows an **Attachments** section listing each filename with a paperclip icon. Only appears when there is attachment metadata — older emails that predate the change and emails sent without attachments are unaffected.
+
+- **File (query):** `apps/web/src/server/api/routers/email.ts` — `attachments: true` added to the `getEmail` select.
+- **File (UI):** `apps/web/src/app/(dashboard)/emails/email-details.tsx` — renders the filename list using `Paperclip` from `lucide-react`.
+
+### 4. Deployment notes
+
+If you self-host the SMTP relay on a platform that does rolling updates (e.g. EasyPanel with `zeroDowntime: true`), make sure **zero-downtime is disabled for the SMTP service**. SMTP servers bind fixed TCP ports (465, 587) which cannot be held by two containers simultaneously, so a rolling update will always fail health-check and roll back to the old container. With zero-downtime off the old container stops first and the new one starts cleanly.
 
 ## Community and Next Steps 🎯
 
