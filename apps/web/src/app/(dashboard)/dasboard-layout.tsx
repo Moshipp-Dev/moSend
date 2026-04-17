@@ -8,6 +8,7 @@ import {
 } from "@usesend/ui/src/sidebar";
 import { useIsMobile } from "@usesend/ui/src/hooks/use-mobile";
 import { UpgradeModal } from "~/components/payments/UpgradeModal";
+import { UsageNearLimitBanner } from "~/components/banners/UsageNearLimitBanner";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -31,6 +32,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset className="min-w-0">
+          <UsageNearLimitBanner />
           <main
             ref={mainRef}
             className="h-full flex-1 overflow-y-auto overflow-x-hidden p-4 xl:px-40"

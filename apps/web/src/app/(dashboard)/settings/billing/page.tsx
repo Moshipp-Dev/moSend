@@ -9,6 +9,9 @@ import { useTeam } from "~/providers/team-context";
 import { api } from "~/trpc/react";
 import { PlanDetails } from "~/components/payments/PlanDetails";
 import { UpgradeButton } from "~/components/payments/UpgradeButton";
+import { UsagePanel } from "~/components/billing/UsagePanel";
+import { MyActivationsPanel } from "~/components/billing/MyActivationsPanel";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const { currentTeam, currentIsAdmin } = useTeam();
@@ -67,11 +70,11 @@ export default function SettingsPage() {
     <div className="space-y-8">
       <Card className=" rounded-xl mt-10 p-8 px-8">
         <PlanDetails />
-        <div className="mt-4">
+        <div className="mt-4 flex gap-2">
           {currentTeam?.plan !== "FREE" ? (
             <Button
               onClick={onManageClick}
-              className="mt-4 w-[120px]"
+              className="mt-4 w-[140px]"
               disabled={manageSessionUrl.isPending}
             >
               {manageSessionUrl.isPending ? (
@@ -83,8 +86,18 @@ export default function SettingsPage() {
           ) : (
             <UpgradeButton />
           )}
+          <Link
+            href="/pricing"
+            className="mt-4 inline-flex items-center rounded-md border px-4 py-2 text-sm"
+          >
+            Ver todos los planes
+          </Link>
         </div>
       </Card>
+
+      <UsagePanel />
+
+      <MyActivationsPanel />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
         <Card className="p-6">
           <div>

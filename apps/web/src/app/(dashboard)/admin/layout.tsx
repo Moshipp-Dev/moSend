@@ -11,13 +11,30 @@ export default function AdminLayout({
   return (
     <div>
       <h1 className="text-lg font-bold">Admin</h1>
-      <div className="mt-4 flex gap-4">
+      <div className="mt-4 flex flex-wrap gap-4">
+        <SettingsNavButton href="/admin/metrics">
+          Métricas
+        </SettingsNavButton>
+        <SettingsNavButton href="/admin/activations">
+          Activaciones
+        </SettingsNavButton>
+        <SettingsNavButton href="/admin/plans">
+          Planes
+        </SettingsNavButton>
+        <SettingsNavButton href="/admin/gateways">
+          Pasarelas
+        </SettingsNavButton>
         <SettingsNavButton href="/admin">
-          SES Configurations
+          SES
         </SettingsNavButton>
         {isCloud() ? (
           <SettingsNavButton href="/admin/teams">
             Teams
+          </SettingsNavButton>
+        ) : null}
+        {isCloud() ? (
+          <SettingsNavButton href="/admin/teams-plans">
+            Teams &amp; Planes
           </SettingsNavButton>
         ) : null}
         {isCloud() ? (
