@@ -3,8 +3,8 @@ import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
   teamAdminProcedure,
+  teamMemberProcedure,
   teamProcedure,
-  publicProcedure,
 } from "~/server/api/trpc";
 import { PlanActivationService } from "~/server/service/plan-activation-service";
 
@@ -37,15 +37,22 @@ export const planActivationRouter = createTRPCRouter({
       );
     }),
 
-  listMine: teamProcedure.query(async ({ ctx }) => {
+  listMine: teamMemberProcedure.query(async ({ ctx }) => {
     return PlanActivationService.listForTeam(ctx.team.id);
   }),
 
-  getStatus: publicProcedure
+  // getStatus must only return info to members of the team that owns the
+  // request. Using teamProcedure here gives us the caller's team; then we
+  // verify the request belongs to that team before exposing anything.
+  getStatus: teamProcedure
     .input(z.object({ requestId: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const req = await PlanActivationService.getById(input.requestId);
       if (!req) throw new TRPCError({ code: "NOT_FOUND" });
+      if (req.teamId !== ctx.team.id) {
+        // Don't leak existence to users of other teams
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
       return {
         id: req.id,
         status: req.status,

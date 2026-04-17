@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { api } from "~/trpc/react";
+import { useTeam } from "~/providers/team-context";
 
 export function UsageNearLimitBanner() {
-  const { data: plan } = api.billing.getCurrentPlan.useQuery();
-  const { data: usage } = api.billing.getThisMonthUsage.useQuery();
+  const { currentIsClient } = useTeam();
+  // CLIENTs (sub-accounts scoped to specific domains) shouldn't see team-wide
+  // billing signals. The tRPC queries would reject them anyway, so avoid the
+  // needless fetch + 403 noise.
+  const enabled = !currentIsClient;
+  const { data: plan } = api.billing.getCurrentPlan.useQuery(undefined, { enabled });
+  const { data: usage } = api.billing.getThisMonthUsage.useQuery(undefined, {
+    enabled,
+  });
 
+  if (!enabled) return null;
   if (!plan || !usage) return null;
 
   const monthlySent = usage.month.reduce((acc, c) => acc + c.sent, 0);
