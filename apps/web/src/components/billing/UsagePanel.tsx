@@ -3,14 +3,19 @@
 import { Card } from "@usesend/ui/src/card";
 import Spinner from "@usesend/ui/src/spinner";
 import { api } from "~/trpc/react";
+import { useTeam } from "~/providers/team-context";
 import { UsageBar } from "./UsageBar";
 import { PlanBadge } from "./PlanBadge";
 
 export function UsagePanel() {
+  const { currentIsClient } = useTeam();
+  const enabled = !currentIsClient;
   const { data: plan, isLoading: planLoading } =
-    api.billing.getCurrentPlan.useQuery();
+    api.billing.getCurrentPlan.useQuery(undefined, { enabled });
   const { data: usage, isLoading: usageLoading } =
-    api.billing.getThisMonthUsage.useQuery();
+    api.billing.getThisMonthUsage.useQuery(undefined, { enabled });
+
+  if (!enabled) return null;
 
   if (planLoading || usageLoading) {
     return (

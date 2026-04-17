@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   teamAdminProcedure,
-  teamProcedure,
+  teamMemberProcedure,
 } from "~/server/api/trpc";
 import {
   createCheckoutSessionForTeam,
@@ -35,15 +35,15 @@ export const billingRouter = createTRPCRouter({
     return { provider: gateway.provider };
   }),
 
-  getThisMonthUsage: teamProcedure.query(async ({ ctx }) => {
+  getThisMonthUsage: teamMemberProcedure.query(async ({ ctx }) => {
     return await getThisMonthUsage(ctx.team.id);
   }),
 
-  getCurrentPlan: teamProcedure.query(async ({ ctx }) => {
+  getCurrentPlan: teamMemberProcedure.query(async ({ ctx }) => {
     return await PlanService.getPlanForTeam(ctx.team.id);
   }),
 
-  getSubscriptionDetails: teamProcedure.query(async ({ ctx }) => {
+  getSubscriptionDetails: teamMemberProcedure.query(async ({ ctx }) => {
     const subscription = await db.subscription.findFirst({
       where: { teamId: ctx.team.id },
       orderBy: { status: "asc" },
