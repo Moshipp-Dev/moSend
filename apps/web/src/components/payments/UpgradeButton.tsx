@@ -1,12 +1,18 @@
 import { Button } from "@usesend/ui/src/button";
 import Spinner from "@usesend/ui/src/spinner";
+import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 
-export const UpgradeButton = () => {
+export const UpgradeButton = ({ planId }: { planId?: number }) => {
+  const router = useRouter();
   const checkoutMutation = api.billing.createCheckoutSession.useMutation();
 
   const onClick = async () => {
-    const url = await checkoutMutation.mutateAsync();
+    if (!planId) {
+      router.push("/pricing");
+      return;
+    }
+    const url = await checkoutMutation.mutateAsync({ planId });
     if (url) {
       window.location.href = url;
     }

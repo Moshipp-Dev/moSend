@@ -1,19 +1,15 @@
-import { PLAN_LIMITS, LimitReason } from "~/lib/constants/plans";
+import { LimitReason } from "~/lib/constants/plans";
 import { env } from "~/env";
 import { getThisMonthUsage } from "./usage-service";
 import { TeamService } from "./team-service";
+import { PlanService } from "./plan-service";
 import { withCache } from "../redis";
 import { db } from "../db";
 import { logger } from "../logger/log";
-import { Plan } from "@prisma/client";
 
 function isLimitExceeded(current: number, limit: number): boolean {
-  if (limit === -1) return false; // unlimited
+  if (limit === -1) return false;
   return current >= limit;
-}
-
-function getActivePlan(team: { plan: Plan; isActive: boolean }): Plan {
-  return team.isActive ? team.plan : "FREE";
 }
 
 export class LimitService {
@@ -22,15 +18,14 @@ export class LimitService {
     limit: number;
     reason?: LimitReason;
   }> {
-    // Limits only apply in cloud mode
     if (!env.NEXT_PUBLIC_IS_CLOUD) {
       return { isLimitReached: false, limit: -1 };
     }
 
-    const team = await TeamService.getTeamCached(teamId);
+    const limits = await PlanService.getLimitsForTeam(teamId);
     const currentCount = await db.domain.count({ where: { teamId } });
+    const limit = limits.maxDomains;
 
-    const limit = PLAN_LIMITS[getActivePlan(team)].domains;
     if (isLimitExceeded(currentCount, limit)) {
       return {
         isLimitReached: true,
@@ -39,10 +34,7 @@ export class LimitService {
       };
     }
 
-    return {
-      isLimitReached: false,
-      limit,
-    };
+    return { isLimitReached: false, limit };
   }
 
   static async checkContactBookLimit(teamId: number): Promise<{
@@ -50,15 +42,14 @@ export class LimitService {
     limit: number;
     reason?: LimitReason;
   }> {
-    // Limits only apply in cloud mode
     if (!env.NEXT_PUBLIC_IS_CLOUD) {
       return { isLimitReached: false, limit: -1 };
     }
 
-    const team = await TeamService.getTeamCached(teamId);
+    const limits = await PlanService.getLimitsForTeam(teamId);
     const currentCount = await db.contactBook.count({ where: { teamId } });
+    const limit = limits.maxContactBooks;
 
-    const limit = PLAN_LIMITS[getActivePlan(team)].contactBooks;
     if (isLimitExceeded(currentCount, limit)) {
       return {
         isLimitReached: true,
@@ -67,10 +58,7 @@ export class LimitService {
       };
     }
 
-    return {
-      isLimitReached: false,
-      limit,
-    };
+    return { isLimitReached: false, limit };
   }
 
   static async checkTeamMemberLimit(teamId: number): Promise<{
@@ -78,15 +66,14 @@ export class LimitService {
     limit: number;
     reason?: LimitReason;
   }> {
-    // Limits only apply in cloud mode
     if (!env.NEXT_PUBLIC_IS_CLOUD) {
       return { isLimitReached: false, limit: -1 };
     }
 
-    const team = await TeamService.getTeamCached(teamId);
+    const limits = await PlanService.getLimitsForTeam(teamId);
     const currentCount = await db.teamUser.count({ where: { teamId } });
+    const limit = limits.maxTeamMembers;
 
-    const limit = PLAN_LIMITS[getActivePlan(team)].teamMembers;
     if (isLimitExceeded(currentCount, limit)) {
       return {
         isLimitReached: true,
@@ -95,10 +82,7 @@ export class LimitService {
       };
     }
 
-    return {
-      isLimitReached: false,
-      limit,
-    };
+    return { isLimitReached: false, limit };
   }
 
   static async checkWebhookLimit(teamId: number): Promise<{
@@ -106,17 +90,14 @@ export class LimitService {
     limit: number;
     reason?: LimitReason;
   }> {
-    // Limits only apply in cloud mode
     if (!env.NEXT_PUBLIC_IS_CLOUD) {
       return { isLimitReached: false, limit: -1 };
     }
 
-    const team = await TeamService.getTeamCached(teamId);
-    const currentCount = await db.webhook.count({
-      where: { teamId },
-    });
+    const limits = await PlanService.getLimitsForTeam(teamId);
+    const currentCount = await db.webhook.count({ where: { teamId } });
+    const limit = limits.maxWebhooks;
 
-    const limit = PLAN_LIMITS[getActivePlan(team)].webhooks;
     if (isLimitExceeded(currentCount, limit)) {
       return {
         isLimitReached: true,
@@ -125,10 +106,7 @@ export class LimitService {
       };
     }
 
-    return {
-      isLimitReached: false,
-      limit,
-    };
+    return { isLimitReached: false, limit };
   }
 
   // Checks email sending limits and also triggers usage notifications.
@@ -142,14 +120,12 @@ export class LimitService {
     reason?: LimitReason;
     available?: number;
   }> {
-    // Limits only apply in cloud mode
     if (!env.NEXT_PUBLIC_IS_CLOUD) {
       return { isLimitReached: false, limit: -1 };
     }
 
     const team = await TeamService.getTeamCached(teamId);
 
-    // In cloud, enforce verification and block flags first
     if (team.isBlocked) {
       return {
         isLimitReached: true,
@@ -158,7 +134,9 @@ export class LimitService {
       };
     }
 
-    // Enforce daily sending limit (team-specific)
+    const plan = await PlanService.getPlanForTeam(teamId);
+    const isFreeTier = plan?.key === "free" || !plan;
+
     const usage = await withCache(
       `usage:this-month:${teamId}`,
       () => getThisMonthUsage(teamId),
@@ -166,19 +144,20 @@ export class LimitService {
     );
 
     const dailyUsage = usage.day.reduce((acc, curr) => acc + curr.sent, 0);
-    const activePlan = getActivePlan(team);
+    // Prefer the plan's daily limit; fall back to the team-specific override only
+    // when the plan says "unlimited" but admin set a manual cap via team.dailyEmailLimit.
+    const planDailyLimit = plan?.emailsPerDay ?? -1;
     const dailyLimit =
-      activePlan !== "FREE"
+      planDailyLimit === -1 && team.dailyEmailLimit > 0
         ? team.dailyEmailLimit
-        : PLAN_LIMITS.FREE.emailsPerDay;
+        : planDailyLimit;
 
     logger.info(
-      { dailyUsage, dailyLimit, team },
+      { dailyUsage, dailyLimit, planKey: plan?.key, team },
       `[LimitService]: Daily usage and limit`,
     );
 
     if (isLimitExceeded(dailyUsage, dailyLimit)) {
-      // Notify: daily limit reached
       try {
         await TeamService.maybeNotifyEmailLimitReached(
           teamId,
@@ -200,21 +179,23 @@ export class LimitService {
       };
     }
 
-    // Apply monthly limit logic for FREE plan or inactive subscriptions
-    if (getActivePlan(team) === "FREE") {
+    if (isFreeTier) {
       const monthlyUsage = usage.month.reduce(
         (acc, curr) => acc + curr.sent,
         0,
       );
-      // Use FREE plan limits for inactive subscriptions
-      const monthlyLimit = PLAN_LIMITS.FREE.emailsPerMonth;
+      const monthlyLimit = plan?.emailsPerMonth ?? 3000;
 
       logger.info(
         { monthlyUsage, monthlyLimit, team, isActive: team.isActive },
         `[LimitService]: Monthly usage and limit (FREE plan or inactive subscription)`,
       );
 
-      if (monthlyUsage / monthlyLimit > 0.8 && monthlyUsage < monthlyLimit) {
+      if (
+        monthlyLimit > 0 &&
+        monthlyUsage / monthlyLimit > 0.8 &&
+        monthlyUsage < monthlyLimit
+      ) {
         await TeamService.sendWarningEmail(
           teamId,
           monthlyUsage,
@@ -223,13 +204,7 @@ export class LimitService {
         );
       }
 
-      logger.info(
-        { monthlyUsage, monthlyLimit, team, isActive: team.isActive },
-        `[LimitService]: Monthly usage and limit (FREE plan or inactive subscription)`,
-      );
-
       if (isLimitExceeded(monthlyUsage, monthlyLimit)) {
-        // Notify: monthly (free plan or inactive subscription) limit reached
         try {
           await TeamService.maybeNotifyEmailLimitReached(
             teamId,
@@ -252,7 +227,6 @@ export class LimitService {
       }
     }
 
-    // Warn: nearing daily limit (e.g., < 20% available)
     if (
       dailyLimit !== -1 &&
       dailyLimit > 0 &&
@@ -274,7 +248,7 @@ export class LimitService {
     return {
       isLimitReached: false,
       limit: dailyLimit,
-      available: dailyLimit - dailyUsage,
+      available: dailyLimit === -1 ? -1 : dailyLimit - dailyUsage,
     };
   }
 }

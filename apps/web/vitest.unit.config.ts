@@ -4,6 +4,7 @@ import baseConfig from "./vitest.config";
 export default mergeConfig(
   baseConfig,
   defineConfig({
+    css: { postcss: { plugins: [] } },
     test: {
       include: ["src/**/*.unit.test.ts"],
     },

@@ -1,11 +1,6 @@
-import { DailyEmailUsage, EmailUsageType, Subscription } from "@prisma/client";
-import { TRPCError } from "@trpc/server";
-import { format, sub } from "date-fns";
 import { z } from "zod";
-import { getThisMonthUsage } from "~/server/service/usage-service";
 
 import {
-  apiKeyProcedure,
   createTRPCRouter,
   teamAdminProcedure,
   teamProcedure,
@@ -14,20 +9,38 @@ import {
   createCheckoutSessionForTeam,
   getManageSessionUrl,
 } from "~/server/billing/payments";
+import { getActiveGateway } from "~/server/payments/gateway-registry";
 import { db } from "~/server/db";
 import { TeamService } from "~/server/service/team-service";
+import { PlanService } from "~/server/service/plan-service";
+import { getThisMonthUsage } from "~/server/service/usage-service";
 
 export const billingRouter = createTRPCRouter({
-  createCheckoutSession: teamAdminProcedure.mutation(async ({ ctx }) => {
-    return (await createCheckoutSessionForTeam(ctx.team.id)).url;
-  }),
+  createCheckoutSession: teamAdminProcedure
+    .input(z.object({ planId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await createCheckoutSessionForTeam(
+        ctx.team.id,
+        input.planId,
+      );
+      return result.url;
+    }),
 
   getManageSessionUrl: teamAdminProcedure.mutation(async ({ ctx }) => {
     return await getManageSessionUrl(ctx.team.id);
   }),
 
+  getActiveGateway: teamAdminProcedure.query(async () => {
+    const gateway = await getActiveGateway();
+    return { provider: gateway.provider };
+  }),
+
   getThisMonthUsage: teamProcedure.query(async ({ ctx }) => {
     return await getThisMonthUsage(ctx.team.id);
+  }),
+
+  getCurrentPlan: teamProcedure.query(async ({ ctx }) => {
+    return await PlanService.getPlanForTeam(ctx.team.id);
   }),
 
   getSubscriptionDetails: teamProcedure.query(async ({ ctx }) => {
@@ -43,7 +56,7 @@ export const billingRouter = createTRPCRouter({
     .input(
       z.object({
         billingEmail: z.string().email(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { billingEmail } = input;
