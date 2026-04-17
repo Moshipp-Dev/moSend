@@ -4,6 +4,13 @@ import { apiRouter } from "./routers/api";
 import { emailRouter } from "./routers/email";
 import { teamRouter } from "./routers/team";
 import { adminRouter } from "./routers/admin";
+import { adminPlansRouter } from "./routers/admin-plans";
+import { adminTeamsRouter } from "./routers/admin-teams";
+import { adminGatewaysRouter } from "./routers/admin-gateways";
+import { adminMetricsRouter } from "./routers/admin-metrics";
+import { adminActivationsRouter } from "./routers/admin-activations";
+import { planRouter } from "./routers/plan";
+import { planActivationRouter } from "./routers/plan-activation";
 import { contactsRouter } from "./routers/contacts";
 import { campaignRouter } from "./routers/campaign";
 import { templateRouter } from "./routers/template";
@@ -27,6 +34,13 @@ export const appRouter = createTRPCRouter({
   email: emailRouter,
   team: teamRouter,
   admin: adminRouter,
+  adminPlans: adminPlansRouter,
+  adminTeams: adminTeamsRouter,
+  adminGateways: adminGatewaysRouter,
+  adminMetrics: adminMetricsRouter,
+  adminActivations: adminActivationsRouter,
+  plan: planRouter,
+  planActivation: planActivationRouter,
   contacts: contactsRouter,
   campaign: campaignRouter,
   template: templateRouter,
