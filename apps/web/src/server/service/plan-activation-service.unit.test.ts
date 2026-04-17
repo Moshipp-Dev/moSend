@@ -163,6 +163,69 @@ describe("PlanActivationService", () => {
     });
   });
 
+  describe("manualAssign", () => {
+    it("creates an APPROVED request and assigns the plan to the team", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5,
+        key: "orbita",
+        isActive: true,
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.team.update.mockResolvedValue({});
+      mockDb.planActivationRequest.create.mockResolvedValue({
+        id: "req_manual",
+        status: "APPROVED",
+        teamId: 10,
+        planId: 5,
+      });
+
+      const result = await PlanActivationService.manualAssign({
+        teamId: 10,
+        planId: 5,
+        adminUserId: 7,
+        paymentReference: "bancolombia-tx-1",
+      });
+
+      expect(result.status).toBe("APPROVED");
+      expect(mockDb.$transaction).toHaveBeenCalledOnce();
+      expect(mockTeamService.refreshTeamCache).toHaveBeenCalledWith(10);
+      expect(mockPlanService.invalidateTeam).toHaveBeenCalledWith(10);
+    });
+
+    it("rejects when plan is inactive", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5,
+        key: "orbita",
+        isActive: false,
+      });
+
+      await expect(
+        PlanActivationService.manualAssign({
+          teamId: 10,
+          planId: 5,
+          adminUserId: 7,
+        }),
+      ).rejects.toThrow(/no está disponible/i);
+    });
+
+    it("rejects when team does not exist", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5,
+        key: "orbita",
+        isActive: true,
+      });
+      mockDb.team.findUnique.mockResolvedValue(null);
+
+      await expect(
+        PlanActivationService.manualAssign({
+          teamId: 999,
+          planId: 5,
+          adminUserId: 7,
+        }),
+      ).rejects.toThrow(/Team no encontrado/i);
+    });
+  });
+
   describe("reject", () => {
     it("marks request REJECTED with reason", async () => {
       mockDb.planActivationRequest.findUnique.mockResolvedValue({

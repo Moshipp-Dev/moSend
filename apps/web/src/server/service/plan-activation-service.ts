@@ -27,6 +27,15 @@ export interface RejectInput {
   adminNotes?: string | null;
 }
 
+export interface ManualAssignInput {
+  teamId: number;
+  planId: number;
+  adminUserId: number;
+  paymentMethod?: string | null;
+  paymentReference?: string | null;
+  adminNotes?: string | null;
+}
+
 export class PlanActivationService {
   static async createRequest(input: CreateRequestInput): Promise<PlanActivationRequest> {
     const plan = await db.pricingPlan.findUnique({ where: { id: input.planId } });
@@ -156,6 +165,74 @@ export class PlanActivationService {
     );
 
     return updatedRequest;
+  }
+
+  // Admin-initiated activation: skips the PENDING state and assigns the plan
+  // immediately. Useful when the admin confirmed payment out-of-band and the
+  // user didn't go through /pricing first.
+  static async manualAssign(
+    input: ManualAssignInput,
+  ): Promise<PlanActivationRequest> {
+    const plan = await db.pricingPlan.findUnique({ where: { id: input.planId } });
+    if (!plan) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Plan no encontrado" });
+    }
+    if (!plan.isActive) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Este plan no está disponible actualmente",
+      });
+    }
+
+    const team = await db.team.findUnique({ where: { id: input.teamId } });
+    if (!team) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Team no encontrado" });
+    }
+
+    const legacyPlan = plan.key === "free" ? "FREE" : "BASIC";
+    const now = new Date();
+
+    const [, createdRequest] = await db.$transaction([
+      db.team.update({
+        where: { id: input.teamId },
+        data: {
+          pricingPlan: { connect: { id: input.planId } },
+          plan: legacyPlan,
+          isActive: true,
+          isBlocked: false,
+        },
+      }),
+      db.planActivationRequest.create({
+        data: {
+          teamId: input.teamId,
+          planId: input.planId,
+          requestedByUserId: input.adminUserId,
+          reviewedByUserId: input.adminUserId,
+          reviewedAt: now,
+          status: "APPROVED",
+          paymentMethod: input.paymentMethod ?? null,
+          paymentReference: input.paymentReference ?? null,
+          adminNotes: input.adminNotes ?? null,
+        },
+      }),
+    ]);
+
+    await Promise.all([
+      TeamService.refreshTeamCache(input.teamId),
+      PlanService.invalidateTeam(input.teamId),
+    ]);
+
+    logger.info(
+      {
+        requestId: createdRequest.id,
+        teamId: input.teamId,
+        planId: input.planId,
+        adminUserId: input.adminUserId,
+      },
+      "[PlanActivation] Manual activation by admin",
+    );
+
+    return createdRequest;
   }
 
   static async reject(input: RejectInput): Promise<PlanActivationRequest> {

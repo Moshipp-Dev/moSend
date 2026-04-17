@@ -43,6 +43,53 @@ export default function AdminActivationsPage() {
   const [adminNotes, setAdminNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
 
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTeamId, setManualTeamId] = useState<string>("");
+  const [manualPlanId, setManualPlanId] = useState<string>("");
+  const [manualPaymentMethod, setManualPaymentMethod] = useState("");
+  const [manualPaymentReference, setManualPaymentReference] = useState("");
+  const [manualAdminNotes, setManualAdminNotes] = useState("");
+
+  const { data: teamsForPicker } = api.adminTeams.list.useQuery(
+    { page: 1, pageSize: 100 },
+    { enabled: manualOpen },
+  );
+  const { data: plansForPicker } = api.adminPlans.list.useQuery(undefined, {
+    enabled: manualOpen,
+  });
+
+  const createManualMutation = api.adminActivations.createManual.useMutation({
+    onSuccess: async () => {
+      toast.success("Activación creada y plan asignado");
+      await utils.adminActivations.list.invalidate();
+      closeManual();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const closeManual = () => {
+    setManualOpen(false);
+    setManualTeamId("");
+    setManualPlanId("");
+    setManualPaymentMethod("");
+    setManualPaymentReference("");
+    setManualAdminNotes("");
+  };
+
+  const submitManual = () => {
+    if (!manualTeamId || !manualPlanId) {
+      toast.error("Selecciona team y plan");
+      return;
+    }
+    createManualMutation.mutate({
+      teamId: Number(manualTeamId),
+      planId: Number(manualPlanId),
+      paymentMethod: manualPaymentMethod || null,
+      paymentReference: manualPaymentReference || null,
+      adminNotes: manualAdminNotes || null,
+    });
+  };
+
   const approveMutation = api.adminActivations.approve.useMutation({
     onSuccess: async () => {
       toast.success("Plan activado");
@@ -92,26 +139,31 @@ export default function AdminActivationsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">Solicitudes de activación</h2>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v as StatusFilter);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="PENDING">Pendientes</SelectItem>
-            <SelectItem value="APPROVED">Aprobadas</SelectItem>
-            <SelectItem value="REJECTED">Rechazadas</SelectItem>
-            <SelectItem value="CANCELLED">Canceladas</SelectItem>
-            <SelectItem value="ALL">Todas</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setManualOpen(true)}>
+            + Nueva activación manual
+          </Button>
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              setStatus(v as StatusFilter);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PENDING">Pendientes</SelectItem>
+              <SelectItem value="APPROVED">Aprobadas</SelectItem>
+              <SelectItem value="REJECTED">Rechazadas</SelectItem>
+              <SelectItem value="CANCELLED">Canceladas</SelectItem>
+              <SelectItem value="ALL">Todas</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {isLoading ? (
@@ -212,6 +264,98 @@ export default function AdminActivationsPage() {
           </div>
         </>
       )}
+
+      <Dialog open={manualOpen} onOpenChange={(open) => !open && closeManual()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva activación manual</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Crea una activación ya aprobada en nombre de un team. Útil cuando el
+            pago se confirmó por fuera y el cliente no pasó por /pricing.
+          </p>
+
+          <div className="space-y-3">
+            <label className="block text-sm">
+              Team
+              <Select value={manualTeamId} onValueChange={setManualTeamId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un team" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {teamsForPicker?.teams.map((t) => (
+                    <SelectItem key={t.id} value={String(t.id)}>
+                      #{t.id} — {t.name}
+                      {t.billingEmail ? ` (${t.billingEmail})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="block text-sm">
+              Plan
+              <Select value={manualPlanId} onValueChange={setManualPlanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plansForPicker
+                    ?.filter((p) => p.isActive)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name}
+                        {p.priceMonthly && Number(p.priceMonthly) > 0
+                          ? ` · ${p.currency} $${Number(p.priceMonthly).toFixed(2)}/mes`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="block text-sm">
+              Método de pago
+              <Input
+                value={manualPaymentMethod}
+                onChange={(e) => setManualPaymentMethod(e.target.value)}
+                placeholder="Ej: Transferencia Bancolombia, Nequi, dLocal Go link"
+              />
+            </label>
+
+            <label className="block text-sm">
+              Referencia de pago
+              <Input
+                value={manualPaymentReference}
+                onChange={(e) => setManualPaymentReference(e.target.value)}
+                placeholder="TX #123456"
+              />
+            </label>
+
+            <label className="block text-sm">
+              Notas internas
+              <Textarea
+                value={manualAdminNotes}
+                onChange={(e) => setManualAdminNotes(e.target.value)}
+                rows={2}
+              />
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeManual}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={submitManual}
+              disabled={createManualMutation.isPending}
+            >
+              Crear y activar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!actionMode} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
