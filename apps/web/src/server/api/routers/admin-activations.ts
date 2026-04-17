@@ -57,4 +57,25 @@ export const adminActivationsRouter = createTRPCRouter({
         adminNotes: input.adminNotes,
       });
     }),
+
+  createManual: adminProcedure
+    .input(
+      z.object({
+        teamId: z.number(),
+        planId: z.number(),
+        paymentMethod: z.string().max(80).nullable().optional(),
+        paymentReference: z.string().max(200).nullable().optional(),
+        adminNotes: z.string().max(1000).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return PlanActivationService.manualAssign({
+        teamId: input.teamId,
+        planId: input.planId,
+        adminUserId: ctx.session.user.id,
+        paymentMethod: input.paymentMethod,
+        paymentReference: input.paymentReference,
+        adminNotes: input.adminNotes,
+      });
+    }),
 });
