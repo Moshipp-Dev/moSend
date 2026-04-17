@@ -7,17 +7,12 @@ import Spinner from "@usesend/ui/src/spinner";
 import { toast } from "@usesend/ui/src/toaster";
 import { format } from "date-fns";
 import { api } from "~/trpc/react";
-import { useTeam } from "~/providers/team-context";
 
 export function MyActivationsPanel() {
-  const { currentIsClient } = useTeam();
+  // CLIENTs see their own activations (filtered by listMine on the server);
+  // ADMIN/MEMBER see the team's full history. No role gate needed here.
   const utils = api.useUtils();
-  const { data: requests, isLoading } = api.planActivation.listMine.useQuery(
-    undefined,
-    { enabled: !currentIsClient },
-  );
-
-  if (currentIsClient) return null;
+  const { data: requests, isLoading } = api.planActivation.listMine.useQuery();
   const cancel = api.planActivation.cancel.useMutation({
     onSuccess: async () => {
       toast.success("Solicitud cancelada");

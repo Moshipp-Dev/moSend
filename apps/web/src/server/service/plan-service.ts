@@ -1,10 +1,11 @@
-import type { PricingPlan } from "@prisma/client";
+import type { PricingPlan, Role } from "@prisma/client";
 import { db } from "../db";
 import { withCache, getRedis, redisKey } from "../redis";
 import { logger } from "../logger/log";
 
 const PLAN_CACHE_TTL = 60;
 const TEAM_PLAN_CACHE_TTL = 60;
+const USER_PLAN_CACHE_TTL = 60;
 
 type PlanLimits = Pick<
   PricingPlan,
@@ -26,6 +27,42 @@ const FALLBACK_FREE_PLAN: PlanLimits = {
 };
 
 export class PlanService {
+  // For CLIENTs: resolves their individual plan (User.pricingPlanId). Falls
+  // back to FREE when unset so limits stay well-defined.
+  // For ADMIN/MEMBER: delegates to the team plan (legacy behavior).
+  static async getPlanForCaller(
+    userId: number,
+    teamId: number,
+    role: Role,
+  ): Promise<PricingPlan | null> {
+    if (role === "CLIENT") {
+      return PlanService.getPlanForUser(userId);
+    }
+    return PlanService.getPlanForTeam(teamId);
+  }
+
+  static async getPlanForUser(userId: number): Promise<PricingPlan | null> {
+    return withCache(
+      `plan:user:${userId}`,
+      async () => {
+        const user = await db.user.findUnique({
+          where: { id: userId },
+          select: { pricingPlanId: true },
+        });
+        if (!user) return null;
+        if (user.pricingPlanId) {
+          const plan = await db.pricingPlan.findUnique({
+            where: { id: user.pricingPlanId },
+          });
+          if (plan && plan.isActive) return plan;
+        }
+        // CLIENT without an explicit plan → FREE tier.
+        return PlanService.getPlanByKey("free");
+      },
+      { ttlSeconds: USER_PLAN_CACHE_TTL },
+    );
+  }
+
   static async getPlanForTeam(teamId: number): Promise<PricingPlan | null> {
     return withCache(
       `plan:team:${teamId}`,
@@ -116,5 +153,10 @@ export class PlanService {
   static async invalidateTeam(teamId: number): Promise<void> {
     const redis = getRedis();
     await redis.del(redisKey(`plan:team:${teamId}`));
+  }
+
+  static async invalidateUser(userId: number): Promise<void> {
+    const redis = getRedis();
+    await redis.del(redisKey(`plan:user:${userId}`));
   }
 }

@@ -87,12 +87,15 @@ model User {
   isBetaUser           Boolean               @default(false)
   isWaitlisted         Boolean               @default(false)
   isAdmin              Boolean               @default(false)
+  pricingPlanId        Int?
   createdAt            DateTime              @default(now())
   accounts             Account[]
   sessions             Session[]
   teamUsers            TeamUser[]
   webhookEndpoints     Webhook[]
   clientDomainAccesses ClientDomainAccess[]
+  pricingPlan          PricingPlan?          @relation("UserPricingPlan", fields: [pricingPlanId], references: [id], onDelete: SetNull)
+  activationsReceived  PlanActivationRequest[] @relation("ActivationTargetUser")
 }
 
 enum Plan {
@@ -123,6 +126,7 @@ model PricingPlan {
   updatedAt       DateTime @updatedAt
 
   teams              Team[]
+  users              User[]                  @relation("UserPricingPlan")
   activationRequests PlanActivationRequest[]
 }
 
@@ -138,6 +142,7 @@ model PlanActivationRequest {
   teamId              Int
   planId              Int
   requestedByUserId   Int?
+  targetUserId        Int?
   status              PlanActivationStatus @default(PENDING)
   paymentMethod       String?
   paymentReference    String?
@@ -150,11 +155,13 @@ model PlanActivationRequest {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
-  team Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  plan PricingPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  plan       PricingPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  targetUser User?       @relation("ActivationTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
 
   @@index([teamId, status])
   @@index([status, createdAt(sort: Desc)])
+  @@index([targetUserId])
 }
 
 enum GatewayProvider {

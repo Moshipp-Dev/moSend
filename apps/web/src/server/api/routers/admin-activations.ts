@@ -63,6 +63,7 @@ export const adminActivationsRouter = createTRPCRouter({
       z.object({
         teamId: z.number(),
         planId: z.number(),
+        targetUserId: z.number().nullable().optional(),
         paymentMethod: z.string().max(80).nullable().optional(),
         paymentReference: z.string().max(200).nullable().optional(),
         adminNotes: z.string().max(1000).nullable().optional(),
@@ -72,6 +73,7 @@ export const adminActivationsRouter = createTRPCRouter({
       return PlanActivationService.manualAssign({
         teamId: input.teamId,
         planId: input.planId,
+        targetUserId: input.targetUserId,
         adminUserId: ctx.session.user.id,
         paymentMethod: input.paymentMethod,
         paymentReference: input.paymentReference,

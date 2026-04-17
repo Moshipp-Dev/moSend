@@ -1,5 +1,6 @@
 import { LimitReason } from "~/lib/constants/plans";
 import { env } from "~/env";
+import type { Role } from "@prisma/client";
 import { getThisMonthUsage } from "./usage-service";
 import { TeamService } from "./team-service";
 import { PlanService } from "./plan-service";
@@ -12,8 +13,19 @@ function isLimitExceeded(current: number, limit: number): boolean {
   return current >= limit;
 }
 
+export interface Caller {
+  userId: number;
+  role: Role;
+}
+
 export class LimitService {
-  static async checkDomainLimit(teamId: number): Promise<{
+  // When a CLIENT calls, the quota is computed against their own
+  // pricing plan and the domains they personally hold access to
+  // (ClientDomainAccess). ADMIN/MEMBER fall back to team-wide counting.
+  static async checkDomainLimit(
+    teamId: number,
+    caller?: Caller,
+  ): Promise<{
     isLimitReached: boolean;
     limit: number;
     reason?: LimitReason;
@@ -22,9 +34,20 @@ export class LimitService {
       return { isLimitReached: false, limit: -1 };
     }
 
-    const limits = await PlanService.getLimitsForTeam(teamId);
-    const currentCount = await db.domain.count({ where: { teamId } });
-    const limit = limits.maxDomains;
+    let limit: number;
+    let currentCount: number;
+
+    if (caller?.role === "CLIENT") {
+      const plan = await PlanService.getPlanForUser(caller.userId);
+      limit = plan?.maxDomains ?? 1;
+      currentCount = await db.clientDomainAccess.count({
+        where: { userId: caller.userId, teamId },
+      });
+    } else {
+      const limits = await PlanService.getLimitsForTeam(teamId);
+      limit = limits.maxDomains;
+      currentCount = await db.domain.count({ where: { teamId } });
+    }
 
     if (isLimitExceeded(currentCount, limit)) {
       return {

@@ -54,14 +54,28 @@ export default function SettingsPage() {
       ? JSON.parse(subscription.paymentMethod)
       : {};
 
-  if (!currentIsAdmin) {
-    return null;
-  }
-
   if (!currentTeam?.plan) {
     return (
       <div className="flex justify-center items-center h-full">
         <Spinner className="w-4 h-4" />
+      </div>
+    );
+  }
+
+  // CLIENTs see only their own plan + usage (read-only). Admin actions
+  // (manage subscription, update billing email) stay hidden for them.
+  if (!currentIsAdmin) {
+    return (
+      <div className="space-y-8">
+        <UsagePanel />
+        <MyActivationsPanel />
+        <div className="px-2 text-sm text-muted-foreground">
+          ¿Necesitás más cupo o otro plan?{" "}
+          <Link href="/pricing" className="text-primary hover:underline">
+            Ver planes disponibles
+          </Link>
+          .
+        </div>
       </div>
     );
   }

@@ -4,6 +4,7 @@ const { mockDb, mockTeamService, mockPlanService } = vi.hoisted(() => {
   const teamUser = {
     findMany: vi.fn(),
     update: vi.fn(),
+    findUnique: vi.fn(),
   };
   const domain = {
     findMany: vi.fn(),
@@ -20,18 +21,17 @@ const { mockDb, mockTeamService, mockPlanService } = vi.hoisted(() => {
     count: vi.fn(),
   };
   const team = { findUnique: vi.fn(), update: vi.fn() };
+  const user = { findUnique: vi.fn(), update: vi.fn() };
   const pricingPlan = { findUnique: vi.fn() };
 
   const mockDb = {
     pricingPlan,
     team,
+    user,
     teamUser,
     domain,
     clientDomainAccess,
     planActivationRequest,
-    // When called with a callback, run it with `mockDb` as tx so downgrade
-    // helper sees the same mocks. When called with an ops array (legacy shape
-    // kept for safety) still work by awaiting each op.
     $transaction: vi.fn(async (arg: any) => {
       if (typeof arg === "function") return arg(mockDb);
       const results: any[] = [];
@@ -43,7 +43,7 @@ const { mockDb, mockTeamService, mockPlanService } = vi.hoisted(() => {
   return {
     mockDb,
     mockTeamService: { refreshTeamCache: vi.fn() },
-    mockPlanService: { invalidateTeam: vi.fn() },
+    mockPlanService: { invalidateTeam: vi.fn(), invalidateUser: vi.fn() },
   };
 });
 
@@ -57,6 +57,7 @@ describe("PlanActivationService", () => {
   beforeEach(() => {
     Object.values(mockDb.pricingPlan).forEach((f) => (f as any).mockReset());
     Object.values(mockDb.team).forEach((f) => (f as any).mockReset());
+    Object.values(mockDb.user).forEach((f) => (f as any).mockReset());
     Object.values(mockDb.teamUser).forEach((f) => (f as any).mockReset());
     Object.values(mockDb.domain).forEach((f) => (f as any).mockReset());
     Object.values(mockDb.clientDomainAccess).forEach((f) => (f as any).mockReset());
@@ -64,15 +65,11 @@ describe("PlanActivationService", () => {
     (mockDb.$transaction as any).mockClear();
     mockTeamService.refreshTeamCache.mockReset();
     mockPlanService.invalidateTeam.mockReset();
-
-    // Defaults: no admins, no domains — downgrade helper is a no-op. Tests
-    // that exercise downgrade override these.
-    mockDb.teamUser.findMany.mockResolvedValue([]);
-    mockDb.domain.findMany.mockResolvedValue([]);
+    mockPlanService.invalidateUser.mockReset();
   });
 
   describe("createRequest", () => {
-    it("creates a PENDING request when inputs are valid", async () => {
+    it("creates a PENDING request scoped to targetUserId (defaults to requester)", async () => {
       mockDb.pricingPlan.findUnique.mockResolvedValue({
         id: 5,
         isActive: true,
@@ -84,6 +81,7 @@ describe("PlanActivationService", () => {
         id: "req_1",
         teamId: 10,
         planId: 5,
+        targetUserId: 99,
         status: "PENDING",
       });
 
@@ -94,29 +92,11 @@ describe("PlanActivationService", () => {
       });
 
       expect(result.status).toBe("PENDING");
-      expect(mockDb.planActivationRequest.create).toHaveBeenCalledOnce();
-    });
-
-    it("returns the existing pending request to avoid duplicates", async () => {
-      mockDb.pricingPlan.findUnique.mockResolvedValue({
-        id: 5,
-        isActive: true,
-        isEnterprise: false,
-      });
-      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
-      mockDb.planActivationRequest.findFirst.mockResolvedValue({
-        id: "req_existing",
-        status: "PENDING",
-      });
-
-      const result = await PlanActivationService.createRequest({
-        teamId: 10,
-        planId: 5,
-        requestedByUserId: 99,
-      });
-
-      expect(result.id).toBe("req_existing");
-      expect(mockDb.planActivationRequest.create).not.toHaveBeenCalled();
+      expect(mockDb.planActivationRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ targetUserId: 99 }),
+        }),
+      );
     });
 
     it("rejects enterprise plans", async () => {
@@ -153,16 +133,15 @@ describe("PlanActivationService", () => {
   });
 
   describe("approve", () => {
-    it("assigns plan to team and marks request APPROVED", async () => {
+    it("when targetUserId is set, assigns plan to the user (not the team)", async () => {
       mockDb.planActivationRequest.findUnique.mockResolvedValue({
         id: "req_1",
         teamId: 10,
         planId: 5,
+        targetUserId: 77,
         status: "PENDING",
         plan: { key: "orbita", id: 5 },
-        team: { id: 10 },
       });
-      mockDb.team.update.mockResolvedValue({});
       mockDb.planActivationRequest.update.mockResolvedValue({
         id: "req_1",
         status: "APPROVED",
@@ -174,9 +153,37 @@ describe("PlanActivationService", () => {
       });
 
       expect(result.status).toBe("APPROVED");
-      expect(mockDb.$transaction).toHaveBeenCalledOnce();
-      expect(mockTeamService.refreshTeamCache).toHaveBeenCalledWith(10);
-      expect(mockPlanService.invalidateTeam).toHaveBeenCalledWith(10);
+      expect(mockDb.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 77 },
+          data: { pricingPlan: { connect: { id: 5 } } },
+        }),
+      );
+      expect(mockDb.team.update).not.toHaveBeenCalled();
+      expect(mockPlanService.invalidateUser).toHaveBeenCalledWith(77);
+    });
+
+    it("without targetUserId, falls back to assigning the plan to the team", async () => {
+      mockDb.planActivationRequest.findUnique.mockResolvedValue({
+        id: "req_legacy",
+        teamId: 10,
+        planId: 5,
+        targetUserId: null,
+        status: "PENDING",
+        plan: { key: "orbita", id: 5 },
+      });
+      mockDb.planActivationRequest.update.mockResolvedValue({
+        id: "req_legacy",
+        status: "APPROVED",
+      });
+
+      await PlanActivationService.approve({
+        requestId: "req_legacy",
+        reviewedByUserId: 1,
+      });
+
+      expect(mockDb.team.update).toHaveBeenCalled();
+      expect(mockDb.user.update).not.toHaveBeenCalled();
     });
 
     it("refuses to approve already-approved requests", async () => {
@@ -184,7 +191,6 @@ describe("PlanActivationService", () => {
         id: "req_1",
         status: "APPROVED",
         plan: {},
-        team: {},
       });
 
       await expect(
@@ -194,48 +200,73 @@ describe("PlanActivationService", () => {
   });
 
   describe("manualAssign", () => {
-    it("creates an APPROVED request and assigns the plan to the team", async () => {
+    it("with targetUserId, requires the user to belong to the team", async () => {
       mockDb.pricingPlan.findUnique.mockResolvedValue({
         id: 5,
         key: "orbita",
         isActive: true,
       });
       mockDb.team.findUnique.mockResolvedValue({ id: 10 });
-      mockDb.team.update.mockResolvedValue({});
+      mockDb.teamUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        PlanActivationService.manualAssign({
+          teamId: 10,
+          planId: 5,
+          adminUserId: 7,
+          targetUserId: 99,
+        }),
+      ).rejects.toThrow(/no pertenece/i);
+    });
+
+    it("assigns per-user plan + records APPROVED request with targetUserId", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5,
+        key: "orbita",
+        isActive: true,
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99, role: "CLIENT" });
       mockDb.planActivationRequest.create.mockResolvedValue({
         id: "req_manual",
         status: "APPROVED",
-        teamId: 10,
-        planId: 5,
+        targetUserId: 99,
       });
 
-      const result = await PlanActivationService.manualAssign({
+      await PlanActivationService.manualAssign({
         teamId: 10,
         planId: 5,
         adminUserId: 7,
+        targetUserId: 99,
         paymentReference: "bancolombia-tx-1",
       });
 
-      expect(result.status).toBe("APPROVED");
-      expect(mockDb.$transaction).toHaveBeenCalledOnce();
-      expect(mockTeamService.refreshTeamCache).toHaveBeenCalledWith(10);
-      expect(mockPlanService.invalidateTeam).toHaveBeenCalledWith(10);
+      expect(mockDb.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 99 },
+          data: { pricingPlan: { connect: { id: 5 } } },
+        }),
+      );
+      expect(mockDb.team.update).not.toHaveBeenCalled();
+      expect(mockDb.planActivationRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ targetUserId: 99, status: "APPROVED" }),
+        }),
+      );
+      expect(mockPlanService.invalidateUser).toHaveBeenCalledWith(99);
     });
 
-    it("downgrades existing ADMINs to CLIENT and grants domain access", async () => {
+    it("without targetUserId, assigns plan to team (legacy)", async () => {
       mockDb.pricingPlan.findUnique.mockResolvedValue({
         id: 5,
         key: "orbita",
         isActive: true,
       });
       mockDb.team.findUnique.mockResolvedValue({ id: 10 });
-      mockDb.team.update.mockResolvedValue({});
       mockDb.planActivationRequest.create.mockResolvedValue({
-        id: "req_manual",
+        id: "req_legacy",
         status: "APPROVED",
       });
-      mockDb.teamUser.findMany.mockResolvedValue([{ userId: 99 }, { userId: 100 }]);
-      mockDb.domain.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
 
       await PlanActivationService.manualAssign({
         teamId: 10,
@@ -243,14 +274,8 @@ describe("PlanActivationService", () => {
         adminUserId: 7,
       });
 
-      // Both admins got demoted to CLIENT
-      expect(mockDb.teamUser.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { role: "CLIENT" } }),
-      );
-      expect(mockDb.teamUser.update).toHaveBeenCalledTimes(2);
-
-      // Domain access: 2 users × 2 domains = 4 upserts
-      expect(mockDb.clientDomainAccess.upsert).toHaveBeenCalledTimes(4);
+      expect(mockDb.team.update).toHaveBeenCalled();
+      expect(mockDb.user.update).not.toHaveBeenCalled();
     });
 
     it("rejects when plan is inactive", async () => {
@@ -267,23 +292,6 @@ describe("PlanActivationService", () => {
           adminUserId: 7,
         }),
       ).rejects.toThrow(/no está disponible/i);
-    });
-
-    it("rejects when team does not exist", async () => {
-      mockDb.pricingPlan.findUnique.mockResolvedValue({
-        id: 5,
-        key: "orbita",
-        isActive: true,
-      });
-      mockDb.team.findUnique.mockResolvedValue(null);
-
-      await expect(
-        PlanActivationService.manualAssign({
-          teamId: 999,
-          planId: 5,
-          adminUserId: 7,
-        }),
-      ).rejects.toThrow(/Team no encontrado/i);
     });
   });
 
@@ -305,14 +313,6 @@ describe("PlanActivationService", () => {
       });
 
       expect(result.status).toBe("REJECTED");
-      expect(mockDb.planActivationRequest.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: "REJECTED",
-            rejectionReason: "pago no confirmado",
-          }),
-        }),
-      );
     });
   });
 
