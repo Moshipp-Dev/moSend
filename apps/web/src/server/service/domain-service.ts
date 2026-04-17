@@ -412,8 +412,12 @@ export async function createDomain(
     throw new Error("Ses setting not found");
   }
 
-  const { isLimitReached, reason } =
-    await LimitService.checkDomainLimit(teamId);
+  const { isLimitReached, reason } = await LimitService.checkDomainLimit(
+    teamId,
+    creator
+      ? { userId: creator.userId, role: creator.isClient ? "CLIENT" : "ADMIN" }
+      : undefined,
+  );
 
   if (isLimitReached) {
     throw new UnsendApiError({

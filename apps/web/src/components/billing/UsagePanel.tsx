@@ -3,19 +3,16 @@
 import { Card } from "@usesend/ui/src/card";
 import Spinner from "@usesend/ui/src/spinner";
 import { api } from "~/trpc/react";
-import { useTeam } from "~/providers/team-context";
 import { UsageBar } from "./UsageBar";
 import { PlanBadge } from "./PlanBadge";
 
 export function UsagePanel() {
-  const { currentIsClient } = useTeam();
-  const enabled = !currentIsClient;
+  // Open to all team roles (including CLIENT). The billing router scopes the
+  // response per caller: CLIENTs get their individual plan + filtered usage.
   const { data: plan, isLoading: planLoading } =
-    api.billing.getCurrentPlan.useQuery(undefined, { enabled });
+    api.billing.getCurrentPlan.useQuery();
   const { data: usage, isLoading: usageLoading } =
-    api.billing.getThisMonthUsage.useQuery(undefined, { enabled });
-
-  if (!enabled) return null;
+    api.billing.getThisMonthUsage.useQuery();
 
   if (planLoading || usageLoading) {
     return (

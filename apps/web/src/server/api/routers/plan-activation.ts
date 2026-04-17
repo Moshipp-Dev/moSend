@@ -9,7 +9,10 @@ import {
 import { PlanActivationService } from "~/server/service/plan-activation-service";
 
 export const planActivationRouter = createTRPCRouter({
-  request: teamAdminProcedure
+  // Any logged-in team member can request a plan for themselves. The admin
+  // SaaS approves it later. CLIENTs included: the activation targets them
+  // individually (user.pricingPlanId) rather than the team.
+  request: teamMemberProcedure
     .input(
       z.object({
         planId: z.number(),
@@ -22,12 +25,13 @@ export const planActivationRouter = createTRPCRouter({
         teamId: ctx.team.id,
         planId: input.planId,
         requestedByUserId: ctx.session.user.id,
+        targetUserId: ctx.session.user.id,
         paymentMethod: input.paymentMethod,
         userNotes: input.userNotes,
       });
     }),
 
-  cancel: teamAdminProcedure
+  cancel: teamMemberProcedure
     .input(z.object({ requestId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await PlanActivationService.cancelOwn(
@@ -38,6 +42,11 @@ export const planActivationRouter = createTRPCRouter({
     }),
 
   listMine: teamMemberProcedure.query(async ({ ctx }) => {
+    // Show the caller's own activations. CLIENTs see their individual history;
+    // ADMIN/MEMBER see every activation linked to their team.
+    if (ctx.teamUser.role === "CLIENT") {
+      return PlanActivationService.listForUser(ctx.session.user.id);
+    }
     return PlanActivationService.listForTeam(ctx.team.id);
   }),
 

@@ -104,4 +104,37 @@ export const adminTeamsRouter = createTRPCRouter({
       await db.dailyEmailUsage.deleteMany({ where });
       await PlanService.invalidateTeam(input.teamId);
     }),
+
+  // Users belonging to a team, used by /admin/activations "Nueva activación"
+  // modal as the target user picker. Returns plan info per user (null for
+  // users without an individual plan assigned).
+  listUsers: adminProcedure
+    .input(z.object({ teamId: z.number() }))
+    .query(async ({ input }) => {
+      const rows = await db.teamUser.findMany({
+        where: { teamId: input.teamId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              pricingPlanId: true,
+              pricingPlan: {
+                select: { id: true, key: true, name: true },
+              },
+            },
+          },
+        },
+        orderBy: { user: { email: "asc" } },
+      });
+
+      return rows.map((r) => ({
+        userId: r.userId,
+        role: r.role,
+        name: r.user.name,
+        email: r.user.email,
+        plan: r.user.pricingPlan,
+      }));
+    }),
 });

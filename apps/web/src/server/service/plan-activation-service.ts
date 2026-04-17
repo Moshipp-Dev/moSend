@@ -1,54 +1,15 @@
 import { TRPCError } from "@trpc/server";
-import type { PlanActivationRequest, PlanActivationStatus, Prisma } from "@prisma/client";
+import type { PlanActivationRequest, PlanActivationStatus } from "@prisma/client";
 import { db } from "~/server/db";
 import { TeamService } from "./team-service";
 import { PlanService } from "./plan-service";
 import { logger } from "../logger/log";
 
-// Post-activation: downgrade every ADMIN of the team to CLIENT and grant
-// ClientDomainAccess on all existing domains so they don't lose visibility.
-// The SaaS admin keeps full control via adminProcedure; the team's former
-// admins operate as CLIENT-scoped users. Idempotent.
-async function downgradeAdminsToClients(
-  tx: Prisma.TransactionClient,
-  teamId: number,
-) {
-  const admins = await tx.teamUser.findMany({
-    where: { teamId, role: "ADMIN" },
-    select: { userId: true },
-  });
-  if (admins.length === 0) return;
-
-  const domains = await tx.domain.findMany({
-    where: { teamId },
-    select: { id: true },
-  });
-
-  for (const { userId } of admins) {
-    await tx.teamUser.update({
-      where: { teamId_userId: { teamId, userId } },
-      data: { role: "CLIENT" },
-    });
-
-    for (const domain of domains) {
-      await tx.clientDomainAccess.upsert({
-        where: { userId_domainId: { userId, domainId: domain.id } },
-        create: { userId, domainId: domain.id, teamId },
-        update: {},
-      });
-    }
-  }
-
-  logger.info(
-    { teamId, downgraded: admins.length, domainsGranted: domains.length },
-    "[PlanActivation] Downgraded admins to CLIENT role and granted domain access",
-  );
-}
-
 export interface CreateRequestInput {
   teamId: number;
   planId: number;
   requestedByUserId: number;
+  targetUserId?: number | null;
   paymentMethod?: string | null;
   userNotes?: string | null;
 }
@@ -71,6 +32,7 @@ export interface ManualAssignInput {
   teamId: number;
   planId: number;
   adminUserId: number;
+  targetUserId?: number | null;
   paymentMethod?: string | null;
   paymentReference?: string | null;
   adminNotes?: string | null;
@@ -100,11 +62,14 @@ export class PlanActivationService {
       throw new TRPCError({ code: "NOT_FOUND", message: "Team no encontrado" });
     }
 
-    // Prevent duplicate pending requests for the same team+plan
+    const targetUserId = input.targetUserId ?? input.requestedByUserId;
+
+    // Prevent duplicate pending requests for the same (team, plan, targetUser)
     const existingPending = await db.planActivationRequest.findFirst({
       where: {
         teamId: input.teamId,
         planId: input.planId,
+        targetUserId,
         status: "PENDING",
       },
     });
@@ -117,6 +82,7 @@ export class PlanActivationService {
         teamId: input.teamId,
         planId: input.planId,
         requestedByUserId: input.requestedByUserId,
+        targetUserId,
         paymentMethod: input.paymentMethod ?? null,
         userNotes: input.userNotes ?? null,
         status: "PENDING",
@@ -124,7 +90,12 @@ export class PlanActivationService {
     });
 
     logger.info(
-      { requestId: request.id, teamId: input.teamId, planId: input.planId },
+      {
+        requestId: request.id,
+        teamId: input.teamId,
+        planId: input.planId,
+        targetUserId,
+      },
       "[PlanActivation] Request created",
     );
 
@@ -159,7 +130,7 @@ export class PlanActivationService {
   static async approve(input: ApproveInput): Promise<PlanActivationRequest> {
     const req = await db.planActivationRequest.findUnique({
       where: { id: input.requestId },
-      include: { plan: true, team: true },
+      include: { plan: true },
     });
     if (!req) throw new TRPCError({ code: "NOT_FOUND" });
     if (req.status !== "PENDING") {
@@ -169,20 +140,28 @@ export class PlanActivationService {
       });
     }
 
-    const legacyPlan = req.plan.key === "free" ? "FREE" : "BASIC";
-
-    // Atomic: mark approved + assign plan to team + demote admins to CLIENT
     const updatedRequest = await db.$transaction(async (tx) => {
-      await tx.team.update({
-        where: { id: req.teamId },
-        data: {
-          pricingPlan: { connect: { id: req.planId } },
-          plan: legacyPlan,
-          isActive: true,
-          isBlocked: false,
-        },
-      });
-      const updated = await tx.planActivationRequest.update({
+      if (req.targetUserId) {
+        // Per-user plan assignment (new model).
+        await tx.user.update({
+          where: { id: req.targetUserId },
+          data: { pricingPlan: { connect: { id: req.planId } } },
+        });
+      } else {
+        // Team-level assignment (legacy: used when a team-wide plan is set).
+        const legacyPlan = req.plan.key === "free" ? "FREE" : "BASIC";
+        await tx.team.update({
+          where: { id: req.teamId },
+          data: {
+            pricingPlan: { connect: { id: req.planId } },
+            plan: legacyPlan,
+            isActive: true,
+            isBlocked: false,
+          },
+        });
+      }
+
+      return tx.planActivationRequest.update({
         where: { id: req.id },
         data: {
           status: "APPROVED",
@@ -192,18 +171,25 @@ export class PlanActivationService {
           adminNotes: input.adminNotes ?? null,
         },
       });
-      await downgradeAdminsToClients(tx, req.teamId);
-      return updated;
     });
 
-    await Promise.all([
+    const invalidations: Promise<unknown>[] = [
       TeamService.refreshTeamCache(req.teamId),
       PlanService.invalidateTeam(req.teamId),
-    ]);
+    ];
+    if (req.targetUserId) {
+      invalidations.push(PlanService.invalidateUser(req.targetUserId));
+    }
+    await Promise.all(invalidations);
 
     logger.info(
-      { requestId: req.id, teamId: req.teamId, planId: req.planId },
-      "[PlanActivation] Request approved, plan assigned",
+      {
+        requestId: req.id,
+        teamId: req.teamId,
+        planId: req.planId,
+        targetUserId: req.targetUserId,
+      },
+      "[PlanActivation] Request approved",
     );
 
     return updatedRequest;
@@ -231,24 +217,48 @@ export class PlanActivationService {
       throw new TRPCError({ code: "NOT_FOUND", message: "Team no encontrado" });
     }
 
-    const legacyPlan = plan.key === "free" ? "FREE" : "BASIC";
+    // If targeting a user, ensure the user belongs to the team.
+    if (input.targetUserId) {
+      const membership = await db.teamUser.findUnique({
+        where: {
+          teamId_userId: { teamId: input.teamId, userId: input.targetUserId },
+        },
+      });
+      if (!membership) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El usuario no pertenece al team seleccionado",
+        });
+      }
+    }
+
     const now = new Date();
 
     const createdRequest = await db.$transaction(async (tx) => {
-      await tx.team.update({
-        where: { id: input.teamId },
-        data: {
-          pricingPlan: { connect: { id: input.planId } },
-          plan: legacyPlan,
-          isActive: true,
-          isBlocked: false,
-        },
-      });
-      const created = await tx.planActivationRequest.create({
+      if (input.targetUserId) {
+        await tx.user.update({
+          where: { id: input.targetUserId },
+          data: { pricingPlan: { connect: { id: input.planId } } },
+        });
+      } else {
+        const legacyPlan = plan.key === "free" ? "FREE" : "BASIC";
+        await tx.team.update({
+          where: { id: input.teamId },
+          data: {
+            pricingPlan: { connect: { id: input.planId } },
+            plan: legacyPlan,
+            isActive: true,
+            isBlocked: false,
+          },
+        });
+      }
+
+      return tx.planActivationRequest.create({
         data: {
           teamId: input.teamId,
           planId: input.planId,
           requestedByUserId: input.adminUserId,
+          targetUserId: input.targetUserId ?? null,
           reviewedByUserId: input.adminUserId,
           reviewedAt: now,
           status: "APPROVED",
@@ -257,20 +267,23 @@ export class PlanActivationService {
           adminNotes: input.adminNotes ?? null,
         },
       });
-      await downgradeAdminsToClients(tx, input.teamId);
-      return created;
     });
 
-    await Promise.all([
+    const invalidations: Promise<unknown>[] = [
       TeamService.refreshTeamCache(input.teamId),
       PlanService.invalidateTeam(input.teamId),
-    ]);
+    ];
+    if (input.targetUserId) {
+      invalidations.push(PlanService.invalidateUser(input.targetUserId));
+    }
+    await Promise.all(invalidations);
 
     logger.info(
       {
         requestId: createdRequest.id,
         teamId: input.teamId,
         planId: input.planId,
+        targetUserId: input.targetUserId,
         adminUserId: input.adminUserId,
       },
       "[PlanActivation] Manual activation by admin",
@@ -310,6 +323,15 @@ export class PlanActivationService {
     });
   }
 
+  static async listForUser(userId: number, limit = 20) {
+    return db.planActivationRequest.findMany({
+      where: { targetUserId: userId },
+      include: { plan: true },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  }
+
   static async listForAdmin(opts: {
     status?: PlanActivationStatus;
     page?: number;
@@ -326,6 +348,7 @@ export class PlanActivationService {
         include: {
           plan: true,
           team: { select: { id: true, name: true, billingEmail: true } },
+          targetUser: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
@@ -342,6 +365,7 @@ export class PlanActivationService {
       include: {
         plan: true,
         team: { select: { id: true, name: true, billingEmail: true } },
+        targetUser: { select: { id: true, name: true, email: true } },
       },
     });
   }

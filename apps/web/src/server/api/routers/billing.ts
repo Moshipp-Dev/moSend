@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   teamAdminProcedure,
-  teamMemberProcedure,
+  teamProcedure,
 } from "~/server/api/trpc";
 import {
   createCheckoutSessionForTeam,
@@ -13,7 +13,10 @@ import { getActiveGateway } from "~/server/payments/gateway-registry";
 import { db } from "~/server/db";
 import { TeamService } from "~/server/service/team-service";
 import { PlanService } from "~/server/service/plan-service";
-import { getThisMonthUsage } from "~/server/service/usage-service";
+import {
+  getThisMonthUsage,
+  getThisMonthUsageForClient,
+} from "~/server/service/usage-service";
 
 export const billingRouter = createTRPCRouter({
   createCheckoutSession: teamAdminProcedure
@@ -35,15 +38,27 @@ export const billingRouter = createTRPCRouter({
     return { provider: gateway.provider };
   }),
 
-  getThisMonthUsage: teamMemberProcedure.query(async ({ ctx }) => {
-    return await getThisMonthUsage(ctx.team.id);
+  // teamProcedure (not teamMemberProcedure) so CLIENTs can see their own
+  // billing state. The payload is scoped to the caller: CLIENTs get their
+  // per-user plan and usage; ADMIN/MEMBER get the team-wide plan and usage.
+  getThisMonthUsage: teamProcedure.query(async ({ ctx }) => {
+    if (ctx.teamUser.role === "CLIENT") {
+      return getThisMonthUsageForClient(ctx.team.id, ctx.session.user.id);
+    }
+    return getThisMonthUsage(ctx.team.id);
   }),
 
-  getCurrentPlan: teamMemberProcedure.query(async ({ ctx }) => {
-    return await PlanService.getPlanForTeam(ctx.team.id);
+  getCurrentPlan: teamProcedure.query(async ({ ctx }) => {
+    return PlanService.getPlanForCaller(
+      ctx.session.user.id,
+      ctx.team.id,
+      ctx.teamUser.role,
+    );
   }),
 
-  getSubscriptionDetails: teamMemberProcedure.query(async ({ ctx }) => {
+  getSubscriptionDetails: teamProcedure.query(async ({ ctx }) => {
+    // Stripe subscription info is team-wide by design; CLIENTs see the team's
+    // subscription if any (usually none in the manual-activation flow).
     const subscription = await db.subscription.findFirst({
       where: { teamId: ctx.team.id },
       orderBy: { status: "asc" },

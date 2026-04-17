@@ -45,6 +45,7 @@ export default function AdminActivationsPage() {
 
   const [manualOpen, setManualOpen] = useState(false);
   const [manualTeamId, setManualTeamId] = useState<string>("");
+  const [manualUserId, setManualUserId] = useState<string>("");
   const [manualPlanId, setManualPlanId] = useState<string>("");
   const [manualPaymentMethod, setManualPaymentMethod] = useState("");
   const [manualPaymentReference, setManualPaymentReference] = useState("");
@@ -57,6 +58,10 @@ export default function AdminActivationsPage() {
   const { data: plansForPicker } = api.adminPlans.list.useQuery(undefined, {
     enabled: manualOpen,
   });
+  const { data: usersForPicker } = api.adminTeams.listUsers.useQuery(
+    { teamId: Number(manualTeamId) },
+    { enabled: manualOpen && !!manualTeamId },
+  );
 
   const createManualMutation = api.adminActivations.createManual.useMutation({
     onSuccess: async () => {
@@ -70,6 +75,7 @@ export default function AdminActivationsPage() {
   const closeManual = () => {
     setManualOpen(false);
     setManualTeamId("");
+    setManualUserId("");
     setManualPlanId("");
     setManualPaymentMethod("");
     setManualPaymentReference("");
@@ -84,6 +90,9 @@ export default function AdminActivationsPage() {
     createManualMutation.mutate({
       teamId: Number(manualTeamId),
       planId: Number(manualPlanId),
+      // Empty user picker = team-wide assignment (legacy); otherwise the plan
+      // goes to that specific user's pricingPlanId.
+      targetUserId: manualUserId ? Number(manualUserId) : null,
       paymentMethod: manualPaymentMethod || null,
       paymentReference: manualPaymentReference || null,
       adminNotes: manualAdminNotes || null,
@@ -279,7 +288,13 @@ export default function AdminActivationsPage() {
           <div className="space-y-3">
             <label className="block text-sm">
               Team
-              <Select value={manualTeamId} onValueChange={setManualTeamId}>
+              <Select
+                value={manualTeamId}
+                onValueChange={(v) => {
+                  setManualTeamId(v);
+                  setManualUserId("");
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un team" />
                 </SelectTrigger>
@@ -292,6 +307,32 @@ export default function AdminActivationsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </label>
+
+            <label className="block text-sm">
+              Usuario del team
+              <Select
+                value={manualUserId}
+                onValueChange={setManualUserId}
+                disabled={!manualTeamId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Plan al team (vacío) o a un user específico" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {usersForPicker?.map((u) => (
+                    <SelectItem key={u.userId} value={String(u.userId)}>
+                      {u.email ?? u.name ?? `#${u.userId}`} — {u.role}
+                      {u.plan ? ` · ${u.plan.name}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Si elegís un user, el plan se asigna solo a él (ideal para
+                CLIENTs). Si lo dejás vacío, se asigna al team completo (modo
+                legacy).
+              </p>
             </label>
 
             <label className="block text-sm">
