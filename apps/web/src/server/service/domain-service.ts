@@ -396,6 +396,7 @@ export async function createDomain(
   name: string,
   region: string,
   sesTenantId?: string,
+  creator?: { userId: number; isClient: boolean },
 ) {
   const domainStr = tldts.getDomain(name);
 
@@ -443,6 +444,19 @@ export async function createDomain(
       spfDetails: DomainStatus.NOT_STARTED,
     },
   });
+
+  // When a CLIENT user creates a domain, grant themselves access to it so the
+  // domain shows up in their filtered list (domainRouter.domains scopes CLIENTs
+  // via ClientDomainAccess).
+  if (creator?.isClient) {
+    await db.clientDomainAccess.create({
+      data: {
+        userId: creator.userId,
+        domainId: domain.id,
+        teamId,
+      },
+    });
+  }
 
   await emitDomainEvent(domain, "domain.created");
 

@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   teamProcedure,
-  teamMemberProcedure,
   protectedProcedure,
   domainProcedure,
 } from "~/server/api/trpc";
@@ -24,14 +23,18 @@ export const domainRouter = createTRPCRouter({
     return settings.map((setting) => setting.region);
   }),
 
-  createDomain: teamMemberProcedure
+  createDomain: teamProcedure
     .input(z.object({ name: z.string(), region: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return createDomain(
         ctx.team.id,
         input.name,
         input.region,
-        ctx.team.sesTenantId ?? undefined
+        ctx.team.sesTenantId ?? undefined,
+        {
+          userId: ctx.teamUser.userId,
+          isClient: ctx.teamUser.role === "CLIENT",
+        }
       );
     }),
 
