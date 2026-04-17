@@ -1,30 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockDb, mockTeamService, mockPlanService } = vi.hoisted(() => ({
-  mockDb: {
-    pricingPlan: { findUnique: vi.fn() },
-    team: { findUnique: vi.fn(), update: vi.fn() },
-    planActivationRequest: {
-      findFirst: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      findMany: vi.fn(),
-      count: vi.fn(),
-    },
-    $transaction: vi.fn(async (ops: any[]) => {
+const { mockDb, mockTeamService, mockPlanService } = vi.hoisted(() => {
+  const teamUser = {
+    findMany: vi.fn(),
+    update: vi.fn(),
+  };
+  const domain = {
+    findMany: vi.fn(),
+  };
+  const clientDomainAccess = {
+    upsert: vi.fn(),
+  };
+  const planActivationRequest = {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
+  };
+  const team = { findUnique: vi.fn(), update: vi.fn() };
+  const pricingPlan = { findUnique: vi.fn() };
+
+  const mockDb = {
+    pricingPlan,
+    team,
+    teamUser,
+    domain,
+    clientDomainAccess,
+    planActivationRequest,
+    // When called with a callback, run it with `mockDb` as tx so downgrade
+    // helper sees the same mocks. When called with an ops array (legacy shape
+    // kept for safety) still work by awaiting each op.
+    $transaction: vi.fn(async (arg: any) => {
+      if (typeof arg === "function") return arg(mockDb);
       const results: any[] = [];
-      for (const op of ops) results.push(await op);
+      for (const op of arg) results.push(await op);
       return results;
     }),
-  },
-  mockTeamService: {
-    refreshTeamCache: vi.fn(),
-  },
-  mockPlanService: {
-    invalidateTeam: vi.fn(),
-  },
-}));
+  };
+
+  return {
+    mockDb,
+    mockTeamService: { refreshTeamCache: vi.fn() },
+    mockPlanService: { invalidateTeam: vi.fn() },
+  };
+});
 
 vi.mock("~/server/db", () => ({ db: mockDb }));
 vi.mock("~/server/service/team-service", () => ({ TeamService: mockTeamService }));
@@ -36,9 +57,18 @@ describe("PlanActivationService", () => {
   beforeEach(() => {
     Object.values(mockDb.pricingPlan).forEach((f) => (f as any).mockReset());
     Object.values(mockDb.team).forEach((f) => (f as any).mockReset());
+    Object.values(mockDb.teamUser).forEach((f) => (f as any).mockReset());
+    Object.values(mockDb.domain).forEach((f) => (f as any).mockReset());
+    Object.values(mockDb.clientDomainAccess).forEach((f) => (f as any).mockReset());
     Object.values(mockDb.planActivationRequest).forEach((f) => (f as any).mockReset());
+    (mockDb.$transaction as any).mockClear();
     mockTeamService.refreshTeamCache.mockReset();
     mockPlanService.invalidateTeam.mockReset();
+
+    // Defaults: no admins, no domains — downgrade helper is a no-op. Tests
+    // that exercise downgrade override these.
+    mockDb.teamUser.findMany.mockResolvedValue([]);
+    mockDb.domain.findMany.mockResolvedValue([]);
   });
 
   describe("createRequest", () => {
@@ -190,6 +220,37 @@ describe("PlanActivationService", () => {
       expect(mockDb.$transaction).toHaveBeenCalledOnce();
       expect(mockTeamService.refreshTeamCache).toHaveBeenCalledWith(10);
       expect(mockPlanService.invalidateTeam).toHaveBeenCalledWith(10);
+    });
+
+    it("downgrades existing ADMINs to CLIENT and grants domain access", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5,
+        key: "orbita",
+        isActive: true,
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.team.update.mockResolvedValue({});
+      mockDb.planActivationRequest.create.mockResolvedValue({
+        id: "req_manual",
+        status: "APPROVED",
+      });
+      mockDb.teamUser.findMany.mockResolvedValue([{ userId: 99 }, { userId: 100 }]);
+      mockDb.domain.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+
+      await PlanActivationService.manualAssign({
+        teamId: 10,
+        planId: 5,
+        adminUserId: 7,
+      });
+
+      // Both admins got demoted to CLIENT
+      expect(mockDb.teamUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { role: "CLIENT" } }),
+      );
+      expect(mockDb.teamUser.update).toHaveBeenCalledTimes(2);
+
+      // Domain access: 2 users × 2 domains = 4 upserts
+      expect(mockDb.clientDomainAccess.upsert).toHaveBeenCalledTimes(4);
     });
 
     it("rejects when plan is inactive", async () => {
