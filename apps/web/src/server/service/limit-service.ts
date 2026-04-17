@@ -1,7 +1,7 @@
 import { LimitReason } from "~/lib/constants/plans";
 import { env } from "~/env";
 import type { Role } from "@prisma/client";
-import { getThisMonthUsage } from "./usage-service";
+import { getThisMonthUsage, getThisMonthUsageForClient } from "./usage-service";
 import { TeamService } from "./team-service";
 import { PlanService } from "./plan-service";
 import { withCache } from "../redis";
@@ -133,11 +133,17 @@ export class LimitService {
   }
 
   // Checks email sending limits and also triggers usage notifications.
+  // When domainId is provided, resolves the CLIENT owner of that domain (via
+  // ClientDomainAccess) and applies their personal plan limits instead of
+  // team-wide limits. Falls back to team-wide logic when no CLIENT is found.
   // Side effects:
   // - Sends "warning" emails when nearing daily/monthly limits (rate-limited in TeamService)
   // - Sends "limit reached" notifications when limits are exceeded (rate-limited in TeamService)
   // - Teams with inactive subscriptions are treated like FREE plans for monthly limit alerts
-  static async checkEmailLimit(teamId: number): Promise<{
+  static async checkEmailLimit(
+    teamId: number,
+    domainId?: number | null,
+  ): Promise<{
     isLimitReached: boolean;
     limit: number;
     reason?: LimitReason;
@@ -155,6 +161,18 @@ export class LimitService {
         limit: 0,
         reason: LimitReason.EMAIL_BLOCKED,
       };
+    }
+
+    // Resolve per-CLIENT limits when the email is sent from a domain that
+    // belongs to a specific CLIENT user.
+    if (domainId) {
+      const access = await db.clientDomainAccess.findFirst({
+        where: { domainId, teamId },
+        select: { userId: true },
+      });
+      if (access) {
+        return LimitService.checkEmailLimitForClient(teamId, access.userId);
+      }
     }
 
     const plan = await PlanService.getPlanForTeam(teamId);
@@ -265,6 +283,67 @@ export class LimitService {
         );
       } catch (e) {
         logger.warn({ err: e }, "Failed to send daily warning email");
+      }
+    }
+
+    return {
+      isLimitReached: false,
+      limit: dailyLimit,
+      available: dailyLimit === -1 ? -1 : dailyLimit - dailyUsage,
+    };
+  }
+
+  private static async checkEmailLimitForClient(
+    teamId: number,
+    userId: number,
+  ): Promise<{
+    isLimitReached: boolean;
+    limit: number;
+    reason?: LimitReason;
+    available?: number;
+  }> {
+    const plan = await PlanService.getPlanForUser(userId);
+    const isFreeTier = plan?.key === "free" || !plan;
+
+    const usage = await withCache(
+      `usage:this-month:client:${userId}`,
+      () => getThisMonthUsageForClient(teamId, userId),
+      { ttlSeconds: 60 },
+    );
+
+    const dailyUsage = usage.day.reduce((acc, curr) => acc + curr.sent, 0);
+    const dailyLimit = plan?.emailsPerDay ?? -1;
+
+    logger.info(
+      { userId, dailyUsage, dailyLimit, planKey: plan?.key },
+      "[LimitService]: CLIENT daily usage and limit",
+    );
+
+    if (isLimitExceeded(dailyUsage, dailyLimit)) {
+      return {
+        isLimitReached: true,
+        limit: dailyLimit,
+        reason: LimitReason.EMAIL_DAILY_LIMIT_REACHED,
+        available: dailyLimit - dailyUsage,
+      };
+    }
+
+    if (isFreeTier) {
+      const monthlyUsage = usage.month.reduce((acc, curr) => acc + curr.sent, 0);
+      const monthlyLimit = plan?.emailsPerMonth ?? 3000;
+
+      logger.info(
+        { userId, monthlyUsage, monthlyLimit },
+        "[LimitService]: CLIENT monthly usage and limit",
+      );
+
+      if (isLimitExceeded(monthlyUsage, monthlyLimit)) {
+        return {
+          isLimitReached: true,
+          limit: monthlyLimit,
+          reason: LimitReason.EMAIL_FREE_PLAN_MONTHLY_LIMIT_REACHED,
+          available: monthlyLimit - monthlyUsage,
+        };
       }
     }
 
