@@ -86,6 +86,7 @@ model User {
   image                String?
   isBetaUser           Boolean               @default(false)
   isWaitlisted         Boolean               @default(false)
+  isAdmin              Boolean               @default(false)
   createdAt            DateTime              @default(now())
   accounts             Account[]
   sessions             Session[]
@@ -99,12 +100,91 @@ enum Plan {
   BASIC
 }
 
+model PricingPlan {
+  id              Int      @id @default(autoincrement())
+  key             String   @unique
+  name            String
+  description     String?
+  emailsPerMonth  Int      @default(-1)
+  emailsPerDay    Int      @default(-1)
+  maxDomains      Int      @default(-1)
+  maxContactBooks Int      @default(-1)
+  maxTeamMembers  Int      @default(-1)
+  maxWebhooks     Int      @default(-1)
+  priceMonthly    Decimal  @default(0) @db.Decimal(10, 2)
+  currency        String   @default("USD")
+  gatewayPriceIds Json     @default("{}")
+  perks           Json     @default("[]")
+  isActive        Boolean  @default(true)
+  isEnterprise    Boolean  @default(false)
+  isPopular       Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  teams              Team[]
+  activationRequests PlanActivationRequest[]
+}
+
+enum PlanActivationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model PlanActivationRequest {
+  id                  String               @id @default(cuid())
+  teamId              Int
+  planId              Int
+  requestedByUserId   Int?
+  status              PlanActivationStatus @default(PENDING)
+  paymentMethod       String?
+  paymentReference    String?
+  userNotes           String?
+  adminNotes          String?
+  rejectionReason     String?
+  reviewedByUserId    Int?
+  reviewedAt          DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  team Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  plan PricingPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([teamId, status])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+enum GatewayProvider {
+  MANUAL
+  STRIPE
+  DLOCALGO
+}
+
+model PaymentGateway {
+  id                Int             @id @default(autoincrement())
+  provider          GatewayProvider @unique
+  isActive          Boolean         @default(false)
+  isDefault         Boolean         @default(false)
+  credentialsCipher String?
+  credentialsIv     String?
+  credentialsTag    String?
+  settings          Json            @default("{}")
+  lastTestedAt      DateTime?
+  lastError         String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
 model Team {
   id               Int               @id @default(autoincrement())
   name             String
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   plan             Plan              @default(FREE)
+  pricingPlanId    Int?
   stripeCustomerId String?           @unique
   isActive         Boolean           @default(true)
   apiRateLimit     Int               @default(2)
@@ -113,6 +193,8 @@ model Team {
   isVerified       Boolean           @default(false)
   dailyEmailLimit  Int               @default(10000)
   isBlocked        Boolean           @default(false)
+  pricingPlan          PricingPlan?      @relation(fields: [pricingPlanId], references: [id], onDelete: SetNull)
+  activationRequests   PlanActivationRequest[]
   teamUsers            TeamUser[]
   domains              Domain[]
   apiKeys              ApiKey[]

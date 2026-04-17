@@ -108,7 +108,7 @@ export const authOptions: NextAuthOptions = {
         ...session.user,
         id: user.id,
         isBetaUser: user.isBetaUser,
-        isAdmin: user.email === env.ADMIN_EMAIL,
+        isAdmin: user.isAdmin || user.email === env.ADMIN_EMAIL,
         isWaitlisted: user.isWaitlisted,
       },
     }),
