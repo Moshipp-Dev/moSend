@@ -9,10 +9,43 @@ import GitHubProvider from "next-auth/providers/github";
 import EmailProvider from "next-auth/providers/email";
 import GoogleProvider from "next-auth/providers/google";
 import { Provider } from "next-auth/providers/index";
+import { SignJWT, jwtVerify } from "jose";
 
 import { sendSignUpEmail } from "~/server/mailer";
 import { env } from "~/env";
 import { db } from "~/server/db";
+
+// HS256-signed JWT shared with the portal (Auth.js v5) for cross-app SSO.
+// Both apps MUST use this exact encode/decode so cookies are interoperable.
+const ssoSecret = () =>
+  new TextEncoder().encode(env.NEXTAUTH_SECRET ?? "");
+const SSO_JWT_ALG = "HS256";
+
+async function ssoEncode(params: {
+  token?: Record<string, unknown>;
+  maxAge?: number;
+}): Promise<string> {
+  const { token = {}, maxAge = 30 * 24 * 60 * 60 } = params;
+  return new SignJWT({ ...token })
+    .setProtectedHeader({ alg: SSO_JWT_ALG })
+    .setIssuedAt()
+    .setExpirationTime(`${maxAge}s`)
+    .sign(ssoSecret());
+}
+
+async function ssoDecode(params: {
+  token?: string;
+}): Promise<Record<string, unknown> | null> {
+  if (!params.token) return null;
+  try {
+    const { payload } = await jwtVerify(params.token, ssoSecret(), {
+      algorithms: [SSO_JWT_ALG],
+    });
+    return payload as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -45,7 +78,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   // eslint-disable-next-line no-unused-vars
   interface JWT {
-    uid?: number;
+    mosendUid?: number;
     isBetaUser?: boolean;
     isAdmin?: boolean;
     isWaitlisted?: boolean;
@@ -121,6 +154,12 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
+  jwt: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    encode: ssoEncode as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    decode: ssoDecode as any,
+  },
   ...(cookieDomain
     ? {
         cookies: {
@@ -139,18 +178,25 @@ export const authOptions: NextAuthOptions = {
     : {}),
   callbacks: {
     jwt: async ({ token, user, trigger }) => {
-      // On initial sign-in, `user` is provided by the adapter.
+      // On direct sign-in within mosend, `user` comes from the Prisma adapter.
       if (user) {
-        token.uid = (user as { id: number }).id;
         token.email = user.email ?? token.email;
       }
 
-      // Re-hydrate custom flags from DB on session refresh or first sign-in.
-      if (trigger === "update" || token.isBetaUser === undefined) {
-        const userId = typeof token.uid === "number" ? token.uid : null;
-        if (userId !== null) {
-          const dbUser = await db.user.findUnique({ where: { id: userId } });
+      // Re-hydrate local User every time mosendUid is missing (cross-app SSO
+      // JWT issued by portal) or on explicit update(). Email is the shared
+      // identifier across the two apps.
+      const needsRehydrate =
+        trigger === "update" || token.mosendUid === undefined;
+
+      if (needsRehydrate) {
+        const email = (token.email as string | undefined) ?? "";
+        if (email) {
+          const dbUser = await db.user.findFirst({
+            where: { email: { equals: email, mode: "insensitive" } },
+          });
           if (dbUser) {
+            token.mosendUid = dbUser.id;
             token.isBetaUser = dbUser.isBetaUser;
             token.isAdmin =
               dbUser.isAdmin || dbUser.email === env.ADMIN_EMAIL;
@@ -167,7 +213,7 @@ export const authOptions: NextAuthOptions = {
       ...session,
       user: {
         ...session.user,
-        id: token.uid as number,
+        id: (token.mosendUid as number | undefined) ?? 0,
         isBetaUser: Boolean(token.isBetaUser),
         isAdmin: Boolean(token.isAdmin),
         isWaitlisted: Boolean(token.isWaitlisted),
