@@ -97,7 +97,10 @@ export const publicProcedure = t.procedure;
  * users should still have access (e.g., waitlist management).
  */
 export const authedProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.session || !ctx.session.user) {
+  // user.id === 0 happens when a cross-app (portal-issued) JWT arrives with
+  // an email we haven't provisioned in mosend yet. Reject rather than
+  // letting downstream queries hit userId=0.
+  if (!ctx.session || !ctx.session.user || !ctx.session.user.id) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
 

@@ -20,7 +20,7 @@ export async function requireAdminKey(c: Context, next: Next) {
     });
   }
 
-  const supplied = header.slice(7);
+  const supplied = header.slice(7).trim();
   const a = Buffer.from(supplied);
   const b = Buffer.from(configured);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {

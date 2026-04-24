@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "~/server/db";
 import { TeamService } from "~/server/service/team-service";
 import { PlanService } from "~/server/service/plan-service";
@@ -7,6 +8,12 @@ import { getThisMonthUsage } from "~/server/service/usage-service";
 import { handleError, UnsendApiError } from "../public-api/api-error";
 import { requireAdminKey } from "./auth";
 import { logger } from "../logger/log";
+
+function isUniqueConstraintError(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002"
+  );
+}
 
 const jsonBody = async <T extends z.ZodTypeAny>(
   raw: unknown,
@@ -64,16 +71,38 @@ export function getAdminApp() {
       return c.json({ id: linked.id, created: false });
     }
 
-    const created = await db.user.create({
-      data: {
-        email: body.email,
-        name: body.name ?? null,
-        image: body.image ?? null,
-        portalUserId: body.portalUserId,
-        isBetaUser: true,
-      },
-    });
-    return c.json({ id: created.id, created: true });
+    try {
+      const created = await db.user.create({
+        data: {
+          email: body.email,
+          name: body.name ?? null,
+          image: body.image ?? null,
+          portalUserId: body.portalUserId,
+          isBetaUser: true,
+        },
+      });
+      return c.json({ id: created.id, created: true });
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        // Concurrent call won the race — look up what it created.
+        const winner =
+          (await db.user.findUnique({
+            where: { portalUserId: body.portalUserId },
+          })) ??
+          (await db.user.findUnique({ where: { email: body.email } }));
+        if (winner) {
+          // Link to portal if missing
+          if (!winner.portalUserId) {
+            await db.user.update({
+              where: { id: winner.id },
+              data: { portalUserId: body.portalUserId },
+            });
+          }
+          return c.json({ id: winner.id, created: false });
+        }
+      }
+      throw err;
+    }
   });
 
   // Lookup user by portalUserId

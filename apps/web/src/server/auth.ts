@@ -17,8 +17,14 @@ import { db } from "~/server/db";
 
 // HS256-signed JWT shared with the portal (Auth.js v5) for cross-app SSO.
 // Both apps MUST use this exact encode/decode so cookies are interoperable.
-const ssoSecret = () =>
-  new TextEncoder().encode(env.NEXTAUTH_SECRET ?? "");
+const ssoSecret = () => {
+  if (!env.NEXTAUTH_SECRET) {
+    throw new Error(
+      "NEXTAUTH_SECRET is required (JWT strategy + SSO cookie). Set it in .env.",
+    );
+  }
+  return new TextEncoder().encode(env.NEXTAUTH_SECRET);
+};
 const SSO_JWT_ALG = "HS256";
 
 async function ssoEncode(params: {
@@ -79,6 +85,7 @@ declare module "next-auth/jwt" {
   // eslint-disable-next-line no-unused-vars
   interface JWT {
     mosendUid?: number;
+    mosendRehydrated?: boolean;
     isBetaUser?: boolean;
     isAdmin?: boolean;
     isWaitlisted?: boolean;
@@ -160,36 +167,31 @@ export const authOptions: NextAuthOptions = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     decode: ssoDecode as any,
   },
-  ...(cookieDomain
-    ? {
-        cookies: {
-          sessionToken: {
-            name: sessionCookieName,
-            options: {
-              httpOnly: true,
-              sameSite: "lax",
-              path: "/",
-              secure: useSecureCookies,
-              domain: cookieDomain,
-            },
-          },
-        },
-      }
-    : {}),
+  cookies: {
+    sessionToken: {
+      name: sessionCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
+      },
+    },
+  },
   callbacks: {
     jwt: async ({ token, user, trigger }) => {
       // On direct sign-in within mosend, `user` comes from the Prisma adapter.
       if (user) {
         token.email = user.email ?? token.email;
+        token.mosendRehydrated = false;
       }
 
-      // Re-hydrate local User every time mosendUid is missing (cross-app SSO
-      // JWT issued by portal) or on explicit update(). Email is the shared
-      // identifier across the two apps.
-      const needsRehydrate =
-        trigger === "update" || token.mosendUid === undefined;
-
-      if (needsRehydrate) {
+      // Re-hydrate local User email-keyed lookup on explicit update() or the
+      // first time we see a token (including cross-app JWTs from portal).
+      // mosendRehydrated is set whether or not a local user is found, so we
+      // don't loop hitting the DB on every request for unknown emails.
+      if (trigger === "update" || !token.mosendRehydrated) {
         const email = (token.email as string | undefined) ?? "";
         if (email) {
           const dbUser = await db.user.findFirst({
@@ -205,6 +207,7 @@ export const authOptions: NextAuthOptions = {
             token.name = dbUser.name ?? token.name;
             token.picture = dbUser.image ?? token.picture;
           }
+          token.mosendRehydrated = true;
         }
       }
       return token;
