@@ -88,6 +88,7 @@ model User {
   isWaitlisted         Boolean               @default(false)
   isAdmin              Boolean               @default(false)
   pricingPlanId        Int?
+  portalUserId         String?               @unique
   createdAt            DateTime              @default(now())
   accounts             Account[]
   sessions             Session[]

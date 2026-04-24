@@ -42,6 +42,16 @@ declare module "next-auth" {
   }
 }
 
+declare module "next-auth/jwt" {
+  // eslint-disable-next-line no-unused-vars
+  interface JWT {
+    uid?: number;
+    isBetaUser?: boolean;
+    isAdmin?: boolean;
+    isWaitlisted?: boolean;
+  }
+}
+
 /**
  * Auth providers
  */
@@ -100,16 +110,67 @@ function getProviders() {
  *
  * @see https://next-auth.js.org/configuration/options
  */
+const cookieDomain = env.AUTH_COOKIE_DOMAIN;
+const useSecureCookies = env.NODE_ENV === "production";
+const sessionCookieName = useSecureCookies
+  ? "__Secure-next-auth.session-token"
+  : "next-auth.session-token";
+
 export const authOptions: NextAuthOptions = {
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
+  },
+  ...(cookieDomain
+    ? {
+        cookies: {
+          sessionToken: {
+            name: sessionCookieName,
+            options: {
+              httpOnly: true,
+              sameSite: "lax",
+              path: "/",
+              secure: useSecureCookies,
+              domain: cookieDomain,
+            },
+          },
+        },
+      }
+    : {}),
   callbacks: {
-    session: ({ session, user }) => ({
+    jwt: async ({ token, user, trigger }) => {
+      // On initial sign-in, `user` is provided by the adapter.
+      if (user) {
+        token.uid = (user as { id: number }).id;
+        token.email = user.email ?? token.email;
+      }
+
+      // Re-hydrate custom flags from DB on session refresh or first sign-in.
+      if (trigger === "update" || token.isBetaUser === undefined) {
+        const userId = typeof token.uid === "number" ? token.uid : null;
+        if (userId !== null) {
+          const dbUser = await db.user.findUnique({ where: { id: userId } });
+          if (dbUser) {
+            token.isBetaUser = dbUser.isBetaUser;
+            token.isAdmin =
+              dbUser.isAdmin || dbUser.email === env.ADMIN_EMAIL;
+            token.isWaitlisted = dbUser.isWaitlisted;
+            token.email = dbUser.email ?? token.email;
+            token.name = dbUser.name ?? token.name;
+            token.picture = dbUser.image ?? token.picture;
+          }
+        }
+      }
+      return token;
+    },
+    session: ({ session, token }) => ({
       ...session,
       user: {
         ...session.user,
-        id: user.id,
-        isBetaUser: user.isBetaUser,
-        isAdmin: user.isAdmin || user.email === env.ADMIN_EMAIL,
-        isWaitlisted: user.isWaitlisted,
+        id: token.uid as number,
+        isBetaUser: Boolean(token.isBetaUser),
+        isAdmin: Boolean(token.isAdmin),
+        isWaitlisted: Boolean(token.isWaitlisted),
       },
     }),
   },

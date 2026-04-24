@@ -72,6 +72,8 @@ export const env = createEnv({
         .optional()
         .transform((str) => (str ? parseInt(str, 10) : undefined)),
     ADMIN_CREDS_ENCRYPTION_KEY: z.string().min(32).optional(),
+    AUTH_COOKIE_DOMAIN: z.string().optional(),
+    PORTAL_ADMIN_API_KEY: z.string().min(32).optional(),
   },
 
   /**
@@ -135,6 +137,8 @@ export const env = createEnv({
     CONTACT_BOOK_ID: process.env.CONTACT_BOOK_ID,
     EMAIL_CLEANUP_DAYS: process.env.EMAIL_CLEANUP_DAYS,
     ADMIN_CREDS_ENCRYPTION_KEY: process.env.ADMIN_CREDS_ENCRYPTION_KEY,
+    AUTH_COOKIE_DOMAIN: process.env.AUTH_COOKIE_DOMAIN,
+    PORTAL_ADMIN_API_KEY: process.env.PORTAL_ADMIN_API_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
