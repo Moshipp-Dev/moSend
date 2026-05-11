@@ -13,6 +13,10 @@ node_modules
 .env.production.local
 .env.selfhost
 
+# Local credentials (Dokploy, etc.) — never commit
+.credenci
+.credenci.*
+
 # Testing
 coverage
 .idea
