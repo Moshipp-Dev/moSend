@@ -2,15 +2,16 @@
 
 import AddSesConfiguration from "./add-ses-configuration";
 import SesConfigurations from "./ses-configurations";
+import { AdminPage } from "~/components/admin/kit";
 
 export default function AdminSesPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Configuraciones SES</h2>
-        <AddSesConfiguration />
-      </div>
+    <AdminPage
+      title="SES"
+      description="Regiones de Amazon SES desde las que envía la plataforma y el estado del callback que recibe entregas, rebotes y quejas."
+      actions={<AddSesConfiguration />}
+    >
       <SesConfigurations />
-    </div>
+    </AdminPage>
   );
 }

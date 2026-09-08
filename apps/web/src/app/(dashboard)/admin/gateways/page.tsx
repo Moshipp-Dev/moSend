@@ -28,7 +28,12 @@ export default function AdminGatewaysPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Pasarelas de pago</h2>
+      <div className="space-y-1">
+        <h2 className="text-2xl font-semibold tracking-tight">Pasarelas de pago</h2>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          Cómo se cobra. Con la pasarela manual el pago se registra a mano desde Facturas o Clientes; Stripe y dLocal Go quedan para cobro automático con tarjeta.
+        </p>
+      </div>
       <p className="text-sm text-muted-foreground">
         Activa, configura y selecciona la pasarela default. Las credenciales se
         almacenan cifradas con AES-256-GCM.

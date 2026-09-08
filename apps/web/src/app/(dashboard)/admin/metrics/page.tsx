@@ -1,82 +1,91 @@
 "use client";
 
 import { api } from "~/trpc/react";
+import { formatMoney, formatNumber } from "~/lib/format";
+import {
+  AdminPage,
+  Cell,
+  DataTable,
+  Row,
+  StatGrid,
+  StatTile,
+} from "~/components/admin/kit";
 import Spinner from "@usesend/ui/src/spinner";
+
+const PLAN_COLUMNS = [
+  { label: "Plan" },
+  { label: "Teams", className: "text-right" },
+  { label: "Precio mensual", className: "text-right" },
+  { label: "Ingreso proyectado", className: "text-right" },
+];
 
 export default function AdminMetricsPage() {
   const { data, isLoading } = api.adminMetrics.dashboard.useQuery();
 
   if (isLoading) return <Spinner />;
-  if (!data) return <p>No hay datos disponibles.</p>;
+  if (!data) return <p className="text-sm text-muted-foreground">No hay datos disponibles.</p>;
+
+  const sent = data.emailsThisMonth.sent;
+  const rate = (n: number) => (sent > 0 ? `${((n / sent) * 100).toFixed(1)}% de los enviados` : undefined);
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-xl font-semibold">Métricas globales</h2>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <MetricCard label="Teams totales" value={data.totalTeams} />
-        <MetricCard label="Teams activos" value={data.activeTeams} />
-        <MetricCard label="Teams bloqueados" value={data.blockedTeams} />
-        <MetricCard
-          label="MRR estimado"
-          value={`$${data.revenueMonthly.toFixed(2)}`}
+    <AdminPage
+      title="Métricas"
+      description="Estado global de la plataforma. El MRR cuenta los planes asignados a teams; los planes por cliente se ven en Facturas."
+    >
+      <StatGrid>
+        <StatTile label="Teams totales" value={formatNumber(data.totalTeams)} />
+        <StatTile label="Teams activos" value={formatNumber(data.activeTeams)} tone="success" />
+        <StatTile
+          label="Teams bloqueados"
+          value={formatNumber(data.blockedTeams)}
+          tone={data.blockedTeams > 0 ? "danger" : "neutral"}
         />
-      </div>
+        <StatTile label="MRR estimado" value={formatMoney(data.revenueMonthly, "USD")} />
+      </StatGrid>
 
-      <section>
-        <h3 className="mb-3 text-lg font-semibold">Teams por plan</h3>
-        <table className="w-full text-sm">
-          <thead className="text-muted-foreground">
-            <tr className="text-left">
-              <th className="py-2">Plan</th>
-              <th className="py-2">Teams</th>
-              <th className="py-2">Precio mensual</th>
-              <th className="py-2">Ingreso proyectado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.teamsPerPlan.map((row) => (
-              <tr key={row.planId} className="border-t">
-                <td className="py-2 font-medium">{row.name}</td>
-                <td className="py-2">{row.count}</td>
-                <td className="py-2">
-                  {row.priceMonthly === 0
-                    ? "—"
-                    : `${row.currency} $${row.priceMonthly.toFixed(2)}`}
-                </td>
-                <td className="py-2">
-                  ${row.revenue.toFixed(2)} {row.currency}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <section className="space-y-3">
+        <h3 className="text-base font-semibold">Correos este mes</h3>
+        <StatGrid>
+          <StatTile label="Enviados" value={formatNumber(sent)} />
+          <StatTile
+            label="Entregados"
+            value={formatNumber(data.emailsThisMonth.delivered)}
+            hint={rate(data.emailsThisMonth.delivered)}
+            tone="success"
+          />
+          <StatTile
+            label="Rebotes"
+            value={formatNumber(data.emailsThisMonth.bounced)}
+            hint={rate(data.emailsThisMonth.bounced)}
+            tone={data.emailsThisMonth.bounced > 0 ? "warning" : "neutral"}
+          />
+          <StatTile
+            label="Quejas"
+            value={formatNumber(data.emailsThisMonth.complained)}
+            hint={rate(data.emailsThisMonth.complained)}
+            tone={data.emailsThisMonth.complained > 0 ? "danger" : "neutral"}
+          />
+        </StatGrid>
       </section>
 
-      <section>
-        <h3 className="mb-3 text-lg font-semibold">Emails este mes</h3>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <MetricCard label="Enviados" value={data.emailsThisMonth.sent} />
-          <MetricCard label="Entregados" value={data.emailsThisMonth.delivered} />
-          <MetricCard label="Rebotes" value={data.emailsThisMonth.bounced} />
-          <MetricCard label="Quejas" value={data.emailsThisMonth.complained} />
-        </div>
+      <section className="space-y-3">
+        <h3 className="text-base font-semibold">Teams por plan</h3>
+        <DataTable columns={PLAN_COLUMNS} isEmpty={data.teamsPerPlan.length === 0}>
+          {data.teamsPerPlan.map((row) => (
+            <Row key={row.planId}>
+              <Cell className="font-medium">{row.name}</Cell>
+              <Cell numeric>{formatNumber(row.count)}</Cell>
+              <Cell numeric className={row.priceMonthly === 0 ? "text-muted-foreground" : ""}>
+                {row.priceMonthly === 0 ? "Gratis" : formatMoney(row.priceMonthly, row.currency)}
+              </Cell>
+              <Cell numeric className="font-medium">
+                {formatMoney(row.revenue, row.currency)}
+              </Cell>
+            </Row>
+          ))}
+        </DataTable>
       </section>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-    </div>
+    </AdminPage>
   );
 }

@@ -5,15 +5,7 @@ import { PlanActivationStatus } from "@prisma/client";
 import { Button } from "@usesend/ui/src/button";
 import { Textarea } from "@usesend/ui/src/textarea";
 import { Input } from "@usesend/ui/src/input";
-import Spinner from "@usesend/ui/src/spinner";
 import { toast } from "@usesend/ui/src/toaster";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@usesend/ui/src/dialog";
 import {
   Select,
   SelectContent,
@@ -21,8 +13,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@usesend/ui/src/select";
-import { format } from "date-fns";
 import { api } from "~/trpc/react";
+import { daysUntil, formatDate, formatDateTime, formatMoney } from "~/lib/format";
+import {
+  ACTIVATION_STATUS,
+  AdminPage,
+  Cell,
+  CellStack,
+  ConfirmDialog,
+  DataTable,
+  Field,
+  FilterBar,
+  Pill,
+  Row,
+  RowActions,
+  TablePagination,
+} from "~/components/admin/kit";
 
 type StatusFilter = PlanActivationStatus | "ALL";
 
@@ -36,6 +42,16 @@ function parsePeriodDays(value: string): number | undefined {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
 }
 
+const COLUMNS = [
+  { label: "Solicitud" },
+  { label: "Cliente" },
+  { label: "Plan" },
+  { label: "Pago" },
+  { label: "Vigencia" },
+  { label: "Estado" },
+  { label: "Acciones", className: "text-right" },
+];
+
 export default function AdminActivationsPage() {
   const utils = api.useUtils();
   const [status, setStatus] = useState<StatusFilter>("PENDING");
@@ -47,6 +63,15 @@ export default function AdminActivationsPage() {
     pageSize: 25,
   });
 
+  const invalidateAll = async () => {
+    await Promise.all([
+      utils.adminActivations.list.invalidate(),
+      utils.adminClients.list.invalidate(),
+      utils.adminInvoices.list.invalidate(),
+    ]);
+  };
+
+  // Approve / reject ----------------------------------------------------------
   const [actionRequestId, setActionRequestId] = useState<string | null>(null);
   const [actionMode, setActionMode] = useState<"approve" | "reject" | null>(null);
   const [paymentReference, setPaymentReference] = useState("");
@@ -54,88 +79,13 @@ export default function AdminActivationsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [approvePeriodDays, setApprovePeriodDays] = useState(DEFAULT_PERIOD_DAYS);
 
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualTitle, setManualTitle] = useState("Nueva activación manual");
-  const [manualTeamId, setManualTeamId] = useState<string>("");
-  const [manualUserId, setManualUserId] = useState<string>("");
-  const [manualPlanId, setManualPlanId] = useState<string>("");
-  const [manualPaymentMethod, setManualPaymentMethod] = useState("");
-  const [manualPaymentReference, setManualPaymentReference] = useState("");
-  const [manualAdminNotes, setManualAdminNotes] = useState("");
-  const [manualPeriodDays, setManualPeriodDays] = useState(DEFAULT_PERIOD_DAYS);
-
-  const { data: teamsForPicker } = api.adminTeams.list.useQuery(
-    { page: 1, pageSize: 100 },
-    { enabled: manualOpen },
-  );
-  const { data: plansForPicker } = api.adminPlans.list.useQuery(undefined, {
-    enabled: manualOpen,
-  });
-  const { data: usersForPicker } = api.adminTeams.listUsers.useQuery(
-    { teamId: Number(manualTeamId) },
-    { enabled: manualOpen && !!manualTeamId },
-  );
-
-  const invalidateAll = async () => {
-    await Promise.all([
-      utils.adminActivations.list.invalidate(),
-      utils.adminClients.list.invalidate(),
-    ]);
-  };
-
-  const createManualMutation = api.adminActivations.createManual.useMutation({
-    onSuccess: async () => {
-      toast.success("Activación creada y plan asignado");
-      await invalidateAll();
-      closeManual();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const closeManual = () => {
-    setManualOpen(false);
-    setManualTitle("Nueva activación manual");
-    setManualTeamId("");
-    setManualUserId("");
-    setManualPlanId("");
-    setManualPaymentMethod("");
-    setManualPaymentReference("");
-    setManualAdminNotes("");
-    setManualPeriodDays(DEFAULT_PERIOD_DAYS);
-  };
-
-  // Renewal = a fresh manual activation prefilled with the same target/plan.
-  const openRenewal = (r: {
-    team: { id: number };
-    targetUser: { id: number } | null;
-    plan: { id: number };
-    paymentMethod: string | null;
-  }) => {
-    setManualTitle("Renovar plan");
-    setManualTeamId(String(r.team.id));
-    setManualUserId(r.targetUser ? String(r.targetUser.id) : "");
-    setManualPlanId(String(r.plan.id));
-    setManualPaymentMethod(r.paymentMethod ?? "");
-    setManualPeriodDays(DEFAULT_PERIOD_DAYS);
-    setManualOpen(true);
-  };
-
-  const submitManual = () => {
-    if (!manualTeamId || !manualPlanId) {
-      toast.error("Selecciona team y plan");
-      return;
-    }
-    createManualMutation.mutate({
-      teamId: Number(manualTeamId),
-      planId: Number(manualPlanId),
-      // Empty user picker = team-wide assignment (legacy); otherwise the plan
-      // goes to that specific user's pricingPlanId.
-      targetUserId: manualUserId ? Number(manualUserId) : null,
-      paymentMethod: manualPaymentMethod || null,
-      paymentReference: manualPaymentReference || null,
-      adminNotes: manualAdminNotes || null,
-      periodDays: parsePeriodDays(manualPeriodDays),
-    });
+  const closeDialog = () => {
+    setActionRequestId(null);
+    setActionMode(null);
+    setPaymentReference("");
+    setAdminNotes("");
+    setRejectionReason("");
+    setApprovePeriodDays(DEFAULT_PERIOD_DAYS);
   };
 
   const approveMutation = api.adminActivations.approve.useMutation({
@@ -155,15 +105,6 @@ export default function AdminActivationsPage() {
     },
     onError: (e) => toast.error(e.message),
   });
-
-  const closeDialog = () => {
-    setActionRequestId(null);
-    setActionMode(null);
-    setPaymentReference("");
-    setAdminNotes("");
-    setRejectionReason("");
-    setApprovePeriodDays(DEFAULT_PERIOD_DAYS);
-  };
 
   const submitAction = () => {
     if (!actionRequestId) return;
@@ -187,408 +128,378 @@ export default function AdminActivationsPage() {
     }
   };
 
+  // Manual activation / renewal ----------------------------------------------
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("Nueva activación manual");
+  const [manualTeamId, setManualTeamId] = useState<string>("");
+  const [manualUserId, setManualUserId] = useState<string>("");
+  const [manualPlanId, setManualPlanId] = useState<string>("");
+  const [manualPaymentMethod, setManualPaymentMethod] = useState("");
+  const [manualPaymentReference, setManualPaymentReference] = useState("");
+  const [manualAdminNotes, setManualAdminNotes] = useState("");
+  const [manualPeriodDays, setManualPeriodDays] = useState(DEFAULT_PERIOD_DAYS);
+
+  const { data: teamsForPicker } = api.adminTeams.list.useQuery(
+    { page: 1, pageSize: 100 },
+    { enabled: manualOpen },
+  );
+  const { data: plansForPicker } = api.adminPlans.list.useQuery(undefined, {
+    enabled: manualOpen,
+  });
+  const { data: usersForPicker } = api.adminTeams.listUsers.useQuery(
+    { teamId: Number(manualTeamId) },
+    { enabled: manualOpen && !!manualTeamId },
+  );
+
+  const closeManual = () => {
+    setManualOpen(false);
+    setManualTitle("Nueva activación manual");
+    setManualTeamId("");
+    setManualUserId("");
+    setManualPlanId("");
+    setManualPaymentMethod("");
+    setManualPaymentReference("");
+    setManualAdminNotes("");
+    setManualPeriodDays(DEFAULT_PERIOD_DAYS);
+  };
+
+  const openRenewal = (r: {
+    team: { id: number };
+    targetUser: { id: number } | null;
+    plan: { id: number };
+    paymentMethod: string | null;
+  }) => {
+    setManualTitle("Renovar plan");
+    setManualTeamId(String(r.team.id));
+    setManualUserId(r.targetUser ? String(r.targetUser.id) : "");
+    setManualPlanId(String(r.plan.id));
+    setManualPaymentMethod(r.paymentMethod ?? "");
+    setManualPeriodDays(DEFAULT_PERIOD_DAYS);
+    setManualOpen(true);
+  };
+
+  const createManualMutation = api.adminActivations.createManual.useMutation({
+    onSuccess: async () => {
+      toast.success("Activación creada y plan asignado");
+      await invalidateAll();
+      closeManual();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const submitManual = () => {
+    if (!manualTeamId || !manualPlanId) {
+      toast.error("Selecciona team y plan");
+      return;
+    }
+    createManualMutation.mutate({
+      teamId: Number(manualTeamId),
+      planId: Number(manualPlanId),
+      targetUserId: manualUserId ? Number(manualUserId) : null,
+      paymentMethod: manualPaymentMethod || null,
+      paymentReference: manualPaymentReference || null,
+      adminNotes: manualAdminNotes || null,
+      periodDays: parsePeriodDays(manualPeriodDays),
+    });
+  };
+
+  const pendingCount = status === "PENDING" ? (data?.total ?? 0) : null;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">Solicitudes de activación</h2>
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => setManualOpen(true)}>
-            + Nueva activación manual
-          </Button>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v as StatusFilter);
-              setPage(1);
-            }}
+    <AdminPage
+      title="Activaciones"
+      description="Solicitudes de plan de los clientes y activaciones hechas a mano. Aprobar asigna el plan de inmediato, registra el pago y avisa al cliente por correo."
+      actions={<Button onClick={() => setManualOpen(true)}>Nueva activación manual</Button>}
+    >
+      <FilterBar>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v as StatusFilter);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="PENDING">Pendientes</SelectItem>
+            <SelectItem value="APPROVED">Activas</SelectItem>
+            <SelectItem value="EXPIRED">Vencidas</SelectItem>
+            <SelectItem value="REJECTED">Rechazadas</SelectItem>
+            <SelectItem value="CANCELLED">Canceladas</SelectItem>
+            <SelectItem value="ALL">Todas</SelectItem>
+          </SelectContent>
+        </Select>
+        {pendingCount !== null && pendingCount > 0 ? (
+          <Pill tone="warning">
+            {pendingCount} por revisar
+          </Pill>
+        ) : null}
+      </FilterBar>
+
+      <DataTable
+        columns={COLUMNS}
+        isLoading={isLoading}
+        isEmpty={data?.requests.length === 0}
+        emptyMessage={
+          status === "PENDING"
+            ? "No hay solicitudes pendientes. Cuando un cliente pida un plan desde /pricing aparece acá."
+            : "No hay solicitudes en este estado."
+        }
+      >
+        {data?.requests.map((r) => {
+          const st = ACTIVATION_STATUS[r.status];
+          return (
+            <Row key={r.id}>
+              <Cell>
+                <CellStack
+                  primary={formatDate(r.createdAt)}
+                  secondary={formatDateTime(r.createdAt).split(",").pop()?.trim()}
+                />
+              </Cell>
+              <Cell>
+                {r.targetUser ? (
+                  <CellStack
+                    primary={r.targetUser.email ?? r.targetUser.name ?? `#${r.targetUser.id}`}
+                    secondary={r.targetUser.name && r.targetUser.email ? r.targetUser.name : `Team ${r.team.name}`}
+                  />
+                ) : (
+                  <CellStack primary="Team completo" secondary={r.team.name} />
+                )}
+              </Cell>
+              <Cell>
+                <CellStack
+                  primary={r.plan.name}
+                  secondary={
+                    Number(r.plan.priceMonthly) > 0
+                      ? `${formatMoney(Number(r.plan.priceMonthly), r.plan.currency)} / mes`
+                      : "Gratis"
+                  }
+                />
+              </Cell>
+              <Cell>
+                <CellStack
+                  primary={r.paymentMethod ?? <span className="text-muted-foreground">—</span>}
+                  secondary={r.paymentReference}
+                />
+              </Cell>
+              <Cell>
+                <ValidityCell status={r.status} expiresAt={r.expiresAt} expiredAt={r.expiredAt} />
+              </Cell>
+              <Cell>
+                <div className="space-y-1">
+                  <Pill tone={st.tone}>{st.label}</Pill>
+                  {r.reviewedAt ? (
+                    <div className="text-xs text-muted-foreground">{formatDate(r.reviewedAt)}</div>
+                  ) : null}
+                </div>
+              </Cell>
+              <Cell>
+                <RowActions>
+                  {r.status === "PENDING" ? (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setActionRequestId(r.id);
+                          setActionMode("approve");
+                        }}
+                      >
+                        Aprobar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setActionRequestId(r.id);
+                          setActionMode("reject");
+                        }}
+                      >
+                        Rechazar
+                      </Button>
+                    </>
+                  ) : r.status === "APPROVED" || r.status === "EXPIRED" ? (
+                    <Button size="sm" variant="outline" onClick={() => openRenewal(r)}>
+                      Renovar
+                    </Button>
+                  ) : null}
+                </RowActions>
+              </Cell>
+            </Row>
+          );
+        })}
+      </DataTable>
+
+      <TablePagination
+        page={page}
+        pageSize={data?.pageSize ?? 25}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+      />
+
+      <ConfirmDialog
+        open={manualOpen}
+        onOpenChange={(open) => !open && closeManual()}
+        title={manualTitle}
+        description="Crea una activación ya aprobada. Útil cuando el pago se confirmó por fuera, o para renovar un plan que está por vencer. El cliente recibe la confirmación con la factura por correo."
+        confirmLabel="Crear y activar"
+        pending={createManualMutation.isPending}
+        onConfirm={submitManual}
+      >
+        <div className="space-y-3">
+          <Field label="Team">
+            <Select
+              value={manualTeamId}
+              onValueChange={(v) => {
+                setManualTeamId(v);
+                setManualUserId("");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un team" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {teamsForPicker?.teams.map((t) => (
+                  <SelectItem key={t.id} value={String(t.id)}>
+                    #{t.id} — {t.name}
+                    {t.billingEmail ? ` (${t.billingEmail})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field
+            label="Cliente"
+            hint="Si elegís un cliente, el plan es solo para él. Vacío asigna el plan al team completo."
           >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="PENDING">Pendientes</SelectItem>
-              <SelectItem value="APPROVED">Aprobadas</SelectItem>
-              <SelectItem value="EXPIRED">Vencidas</SelectItem>
-              <SelectItem value="REJECTED">Rechazadas</SelectItem>
-              <SelectItem value="CANCELLED">Canceladas</SelectItem>
-              <SelectItem value="ALL">Todas</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            <Select value={manualUserId} onValueChange={setManualUserId} disabled={!manualTeamId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Team completo o un cliente específico" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {usersForPicker?.map((u) => (
+                  <SelectItem key={u.userId} value={String(u.userId)}>
+                    {u.email ?? u.name ?? `#${u.userId}`} · {u.role}
+                    {u.plan ? ` · ${u.plan.name}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-      {isLoading ? (
-        <Spinner />
-      ) : (
-        <>
-          <table className="w-full text-sm">
-            <thead className="text-muted-foreground">
-              <tr className="text-left">
-                <th className="py-2">Fecha</th>
-                <th className="py-2">Cliente</th>
-                <th className="py-2">Team</th>
-                <th className="py-2">Plan</th>
-                <th className="py-2">Método</th>
-                <th className="py-2">Vigencia</th>
-                <th className="py-2">Estado</th>
-                <th className="py-2 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.requests.map((r) => (
-                <tr key={r.id} className="border-t align-top">
-                  <td className="py-2 text-xs">
-                    {format(new Date(r.createdAt), "yyyy-MM-dd HH:mm")}
-                  </td>
-                  <td className="py-2">
-                    {r.targetUser ? (
-                      <>
-                        <div className="font-medium">
-                          {r.targetUser.email ?? r.targetUser.name ?? `#${r.targetUser.id}`}
-                        </div>
-                        {r.targetUser.name && r.targetUser.email ? (
-                          <div className="text-xs text-muted-foreground">
-                            {r.targetUser.name}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Team completo
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2">
-                    <div>{r.team.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      #{r.team.id}
-                      {r.team.billingEmail ? ` · ${r.team.billingEmail}` : ""}
-                    </div>
-                  </td>
-                  <td className="py-2">{r.plan.name}</td>
-                  <td className="py-2 text-xs">
-                    <div>{r.paymentMethod ?? "—"}</div>
-                    {r.paymentReference ? (
-                      <div className="text-muted-foreground">{r.paymentReference}</div>
-                    ) : null}
-                  </td>
-                  <td className="py-2 text-xs">
-                    <ValidityCell
-                      status={r.status}
-                      expiresAt={r.expiresAt}
-                      expiredAt={r.expiredAt}
-                    />
-                  </td>
-                  <td className="py-2">
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td className="py-2 text-right">
-                    {r.status === "PENDING" ? (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setActionRequestId(r.id);
-                            setActionMode("approve");
-                          }}
-                        >
-                          Aprobar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setActionRequestId(r.id);
-                            setActionMode("reject");
-                          }}
-                        >
-                          Rechazar
-                        </Button>
-                      </div>
-                    ) : r.status === "APPROVED" || r.status === "EXPIRED" ? (
-                      <div className="flex flex-col items-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openRenewal(r)}
-                        >
-                          Renovar
-                        </Button>
-                        <span className="text-xs text-muted-foreground">
-                          {r.reviewedAt
-                            ? format(new Date(r.reviewedAt), "yyyy-MM-dd HH:mm")
-                            : ""}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {r.reviewedAt
-                          ? format(new Date(r.reviewedAt), "yyyy-MM-dd HH:mm")
-                          : ""}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {data?.requests.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-6 text-center text-muted-foreground">
-                    No hay solicitudes en este estado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Total: {data?.total ?? 0}</span>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                ← Anterior
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!data || page * data.pageSize >= data.total}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Siguiente →
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
-
-      <Dialog open={manualOpen} onOpenChange={(open) => !open && closeManual()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{manualTitle}</DialogTitle>
-          </DialogHeader>
-
-          <p className="text-sm text-muted-foreground">
-            Crea una activación ya aprobada. Útil cuando el pago se confirmó
-            por fuera, o para renovar un plan que está por vencer. El cliente
-            recibe un correo con la confirmación y la fecha de vencimiento.
-          </p>
-
-          <div className="space-y-3">
-            <label className="block text-sm">
-              Team
-              <Select
-                value={manualTeamId}
-                onValueChange={(v) => {
-                  setManualTeamId(v);
-                  setManualUserId("");
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un team" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {teamsForPicker?.teams.map((t) => (
-                    <SelectItem key={t.id} value={String(t.id)}>
-                      #{t.id} — {t.name}
-                      {t.billingEmail ? ` (${t.billingEmail})` : ""}
+          <Field label="Plan">
+            <Select value={manualPlanId} onValueChange={setManualPlanId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un plan" />
+              </SelectTrigger>
+              <SelectContent>
+                {plansForPicker
+                  ?.filter((p) => p.isActive)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                      {Number(p.priceMonthly) > 0
+                        ? ` · ${formatMoney(Number(p.priceMonthly), p.currency)}/mes`
+                        : " · gratis"}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </label>
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <label className="block text-sm">
-              Cliente (usuario del team)
-              <Select
-                value={manualUserId}
-                onValueChange={setManualUserId}
-                disabled={!manualTeamId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Plan al team (vacío) o a un cliente específico" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {usersForPicker?.map((u) => (
-                    <SelectItem key={u.userId} value={String(u.userId)}>
-                      {u.email ?? u.name ?? `#${u.userId}`} — {u.role}
-                      {u.plan ? ` · ${u.plan.name}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Si elegís un cliente, el plan se asigna solo a él (modelo
-                CLIENT). Si lo dejás vacío, se asigna al team completo.
-              </p>
-            </label>
+          <Field
+            label="Vigencia (días)"
+            hint="30 = un mes. 0 = sin vencimiento. Al vencer sin pago la cuenta se suspende y recibe avisos 7 y 1 día antes."
+          >
+            <Input
+              type="number"
+              min={0}
+              value={manualPeriodDays}
+              onChange={(e) => setManualPeriodDays(e.target.value)}
+            />
+          </Field>
 
-            <label className="block text-sm">
-              Plan
-              <Select value={manualPlanId} onValueChange={setManualPlanId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plansForPicker
-                    ?.filter((p) => p.isActive)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.name}
-                        {p.priceMonthly && Number(p.priceMonthly) > 0
-                          ? ` · ${p.currency} $${Number(p.priceMonthly).toFixed(2)}/mes`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </label>
-
-            <label className="block text-sm">
-              Vigencia (días)
-              <Input
-                type="number"
-                min={0}
-                value={manualPeriodDays}
-                onChange={(e) => setManualPeriodDays(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                30 = un mes. 0 = sin vencimiento. Al vencer, el cliente pasa
-                al plan gratuito y recibe avisos 7 y 1 día antes.
-              </p>
-            </label>
-
-            <label className="block text-sm">
-              Método de pago
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Método de pago">
               <Input
                 value={manualPaymentMethod}
                 onChange={(e) => setManualPaymentMethod(e.target.value)}
-                placeholder="Ej: Transferencia Bancolombia, Nequi, dLocal Go link"
+                placeholder="Transferencia, Nequi…"
               />
-            </label>
-
-            <label className="block text-sm">
-              Referencia de pago
+            </Field>
+            <Field label="Referencia de pago">
               <Input
                 value={manualPaymentReference}
                 onChange={(e) => setManualPaymentReference(e.target.value)}
                 placeholder="TX #123456"
               />
-            </label>
-
-            <label className="block text-sm">
-              Notas internas
-              <Textarea
-                value={manualAdminNotes}
-                onChange={(e) => setManualAdminNotes(e.target.value)}
-                rows={2}
-              />
-            </label>
+            </Field>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={closeManual}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={submitManual}
-              disabled={createManualMutation.isPending}
-            >
-              {createManualMutation.isPending ? (
-                <Spinner className="h-4 w-4" />
-              ) : (
-                "Crear y activar"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Field label="Notas internas">
+            <Textarea
+              value={manualAdminNotes}
+              onChange={(e) => setManualAdminNotes(e.target.value)}
+              rows={2}
+            />
+          </Field>
+        </div>
+      </ConfirmDialog>
 
-      <Dialog open={!!actionMode} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {actionMode === "approve"
-                ? "Aprobar y activar plan"
-                : "Rechazar solicitud"}
-            </DialogTitle>
-          </DialogHeader>
-
-          {actionMode === "approve" ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Al aprobar, el plan se asigna inmediatamente y el cliente
-                recibe un correo de confirmación. Guarda el comprobante del
-                pago para el historial.
-              </p>
-              <label className="block text-sm">
-                Vigencia (días)
-                <Input
-                  type="number"
-                  min={0}
-                  value={approvePeriodDays}
-                  onChange={(e) => setApprovePeriodDays(e.target.value)}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  30 = un mes. 0 = sin vencimiento.
-                </p>
-              </label>
-              <label className="block text-sm">
-                Referencia de pago
-                <Input
-                  value={paymentReference}
-                  onChange={(e) => setPaymentReference(e.target.value)}
-                  placeholder="Ej: Bancolombia TX #123456"
-                />
-              </label>
-              <label className="block text-sm">
-                Notas internas
-                <Textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  rows={2}
-                />
-              </label>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <label className="block text-sm">
-                Motivo del rechazo (se envía al cliente por correo)
-                <Textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  rows={3}
-                  required
-                />
-              </label>
-              <label className="block text-sm">
-                Notas internas
-                <Textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  rows={2}
-                />
-              </label>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={submitAction}
-              disabled={approveMutation.isPending || rejectMutation.isPending}
-              variant={actionMode === "reject" ? "destructive" : "default"}
-            >
-              {actionMode === "approve" ? "Aprobar y activar" : "Rechazar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <ConfirmDialog
+        open={!!actionMode}
+        onOpenChange={(open) => !open && closeDialog()}
+        title={actionMode === "approve" ? "Aprobar y activar plan" : "Rechazar solicitud"}
+        description={
+          actionMode === "approve"
+            ? "El plan se asigna de inmediato y el cliente recibe la confirmación con la factura. Guarda el comprobante para el historial."
+            : "El cliente recibe un correo con el motivo del rechazo."
+        }
+        confirmLabel={actionMode === "approve" ? "Aprobar y activar" : "Rechazar"}
+        destructive={actionMode === "reject"}
+        pending={approveMutation.isPending || rejectMutation.isPending}
+        onConfirm={submitAction}
+      >
+        {actionMode === "approve" ? (
+          <div className="space-y-3">
+            <Field label="Vigencia (días)" hint="30 = un mes. 0 = sin vencimiento.">
+              <Input
+                type="number"
+                min={0}
+                value={approvePeriodDays}
+                onChange={(e) => setApprovePeriodDays(e.target.value)}
+              />
+            </Field>
+            <Field label="Referencia de pago">
+              <Input
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Ej: Bancolombia TX #123456"
+              />
+            </Field>
+            <Field label="Notas internas">
+              <Textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2} />
+            </Field>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Field label="Motivo del rechazo" hint="Se envía al cliente por correo.">
+              <Textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={3}
+                required
+              />
+            </Field>
+            <Field label="Notas internas">
+              <Textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={2} />
+            </Field>
+          </div>
+        )}
+      </ConfirmDialog>
+    </AdminPage>
   );
 }
 
@@ -602,52 +513,22 @@ function ValidityCell({
   expiredAt: Date | string | null;
 }) {
   if (status === "APPROVED") {
-    if (!expiresAt) return <span>Sin vencimiento</span>;
-    const date = new Date(expiresAt);
-    const daysLeft = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
-    const tone =
-      daysLeft <= 1
-        ? "text-destructive"
-        : daysLeft <= 7
-          ? "text-yellow-700 dark:text-yellow-400"
-          : "";
+    if (!expiresAt) return <span className="text-sm">Sin vencimiento</span>;
+    const left = daysUntil(expiresAt);
+    const tone = left <= 1 ? "danger" : left <= 7 ? "warning" : "neutral";
     return (
-      <div className={tone}>
-        <div>Vence {format(date, "yyyy-MM-dd")}</div>
-        <div className="text-muted-foreground">
-          {daysLeft > 0 ? `${daysLeft} día${daysLeft === 1 ? "" : "s"}` : "hoy"}
-        </div>
+      <div className="space-y-1">
+        <div className="text-sm">Vence {formatDate(expiresAt)}</div>
+        <Pill tone={tone}>{left > 0 ? `${left} día${left === 1 ? "" : "s"}` : "Hoy"}</Pill>
       </div>
     );
   }
   if (status === "EXPIRED") {
     return (
-      <span className="text-muted-foreground">
-        Venció {expiredAt ? format(new Date(expiredAt), "yyyy-MM-dd") : ""}
+      <span className="text-sm text-muted-foreground">
+        Venció {expiredAt ? formatDate(expiredAt) : ""}
       </span>
     );
   }
   return <span className="text-muted-foreground">—</span>;
-}
-
-function StatusBadge({ status }: { status: PlanActivationStatus }) {
-  const styles = {
-    PENDING: "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-100",
-    APPROVED: "bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-100",
-    EXPIRED: "bg-orange-100 text-orange-900 dark:bg-orange-900/30 dark:text-orange-100",
-    REJECTED: "bg-destructive/10 text-destructive",
-    CANCELLED: "bg-muted text-muted-foreground",
-  } as const;
-  const labels = {
-    PENDING: "Pendiente",
-    APPROVED: "Aprobada",
-    EXPIRED: "Vencida",
-    REJECTED: "Rechazada",
-    CANCELLED: "Cancelada",
-  } as const;
-  return (
-    <span className={`rounded-full px-2 py-1 text-xs ${styles[status]}`}>
-      {labels[status]}
-    </span>
-  );
 }
