@@ -745,6 +745,25 @@ describe("PlanActivationService", () => {
       );
     });
 
+    it("honours the payment even if the invoiced plan was retired", async () => {
+      mockInvoice.getById.mockResolvedValue({
+        id: "inv_1", number: "MS-2026-0004", status: "ISSUED", userId: 99, teamId: 10, planId: 8,
+        periodStart: new Date("2026-10-07T00:00:00Z"), periodEnd: new Date("2026-11-06T00:00:00Z"),
+      });
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 8, key: "prueba", name: "Prueba", isActive: false, priceMonthly: 10, currency: "USD",
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99, role: "CLIENT" });
+      mockDb.planActivationRequest.create.mockResolvedValue({ id: "req_pay" });
+      mockInvoice.isBillable.mockReturnValue(true);
+      mockInvoice.recordPayment.mockResolvedValue({ id: "inv_1", number: "MS-2026-0004", amount: 10, currency: "USD" });
+
+      await expect(
+        PlanActivationService.registerInvoicePayment({ invoiceId: "inv_1", adminUserId: 7 }),
+      ).resolves.toEqual({ id: "req_pay" });
+    });
+
     it("refuses paid or voided invoices", async () => {
       mockInvoice.getById.mockResolvedValue({ id: "inv_1", status: "PAID", userId: 99 });
       await expect(

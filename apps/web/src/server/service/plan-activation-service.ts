@@ -78,6 +78,9 @@ export interface ManualAssignInput {
   paymentReference?: string | null;
   adminNotes?: string | null;
   periodDays?: number | null;
+  // A payment for an already issued cuenta de cobro is honoured even if the
+  // plan was retired from the catalogue in the meantime.
+  allowInactivePlan?: boolean;
 }
 
 export class PlanActivationService {
@@ -293,7 +296,7 @@ export class PlanActivationService {
     if (!plan) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Plan no encontrado" });
     }
-    if (!plan.isActive) {
+    if (!plan.isActive && !input.allowInactivePlan) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "Este plan no está disponible actualmente",
@@ -461,6 +464,7 @@ export class PlanActivationService {
       paymentMethod: input.paymentMethod,
       paymentReference: input.paymentReference,
       adminNotes: `Pago de ${invoice.number}`,
+      allowInactivePlan: true,
     });
   }
 
