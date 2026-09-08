@@ -111,6 +111,40 @@ describe("LimitService", () => {
       expect(r.reason).toBe(LimitReason.EMAIL_DAILY_LIMIT_REACHED);
       expect(mockPlan.getPlanForTeam).not.toHaveBeenCalled();
     });
+
+    it("enforces the monthly package on paid CLIENT plans", async () => {
+      mockDb.clientDomainAccess.findFirst.mockResolvedValue({ userId: 77 });
+      mockDb.user.findUnique.mockResolvedValue({ isBlocked: false });
+      mockTeamService.getTeamCached.mockResolvedValue({ isBlocked: false });
+      mockPlan.getPlanForUser.mockResolvedValue({
+        key: "orbita",
+        emailsPerDay: -1,
+        emailsPerMonth: 5000,
+      });
+      mockUsage.mockResolvedValue({ day: [], month: [{ sent: 5000 }] });
+
+      const r = await LimitService.checkEmailLimit(1, 42);
+
+      expect(r.isLimitReached).toBe(true);
+      expect(r.reason).toBe(LimitReason.EMAIL_FREE_PLAN_MONTHLY_LIMIT_REACHED);
+      expect(r.limit).toBe(5000);
+    });
+
+    it("leaves unlimited paid CLIENT plans alone", async () => {
+      mockDb.clientDomainAccess.findFirst.mockResolvedValue({ userId: 77 });
+      mockDb.user.findUnique.mockResolvedValue({ isBlocked: false });
+      mockTeamService.getTeamCached.mockResolvedValue({ isBlocked: false });
+      mockPlan.getPlanForUser.mockResolvedValue({
+        key: "supernova",
+        emailsPerDay: -1,
+        emailsPerMonth: -1,
+      });
+      mockUsage.mockResolvedValue({ day: [], month: [{ sent: 999999 }] });
+
+      const r = await LimitService.checkEmailLimit(1, 42);
+
+      expect(r.isLimitReached).toBe(false);
+    });
   });
 
   describe("checkEmailLimit", () => {

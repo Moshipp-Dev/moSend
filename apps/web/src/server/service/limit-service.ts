@@ -349,9 +349,13 @@ export class LimitService {
       };
     }
 
-    if (isFreeTier) {
+    // CLIENT plans are sold as monthly packages, so the monthly quota is the
+    // primary limit for every plan (the team path only caps free tiers).
+    const monthlyLimit = isFreeTier
+      ? (plan?.emailsPerMonth ?? 3000)
+      : (plan?.emailsPerMonth ?? -1);
+    if (monthlyLimit !== -1) {
       const monthlyUsage = usage.month.reduce((acc, curr) => acc + curr.sent, 0);
-      const monthlyLimit = plan?.emailsPerMonth ?? 3000;
 
       logger.info(
         { userId, monthlyUsage, monthlyLimit },

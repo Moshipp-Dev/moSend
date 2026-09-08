@@ -222,6 +222,29 @@ export async function sendPlanExpiredEmail(
   );
 }
 
+export async function sendClientWelcomeEmail(
+  email: string,
+  opts: { name: string | null; domains: string[] }
+) {
+  const greeting = opts.name ? `Hola ${opts.name},` : "Hola,";
+  const domainsLine =
+    opts.domains.length > 0
+      ? `Podés enviar correos desde: ${opts.domains.join(", ")}.`
+      : "Cuando ingreses vas a poder agregar y verificar tus dominios de envío.";
+
+  await sendPlanEmail(
+    email,
+    "Tu cuenta en moSend está lista",
+    [
+      greeting,
+      "Creamos tu cuenta en moSend, la plataforma de envío de correos de Moshipp.",
+      `Para ingresar, usá este mismo email (${email}): te enviaremos un código de acceso, o podés entrar con Google o GitHub si usan la misma dirección.`,
+      domainsLine,
+    ],
+    { label: "Ingresar a moSend", url: `${appBaseUrl()}/login` }
+  );
+}
+
 export async function sendMail(
   email: string,
   subject: string,

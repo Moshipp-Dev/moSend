@@ -84,7 +84,8 @@ The email detail sheet (opened when you click an email in the dashboard list) no
 
 Customers are `CLIENT` users inside the operator's team, each with their own `PricingPlan` and domains. Selling a plan is a manual activation, not a card checkout:
 
-1. The customer requests a plan from `/pricing` (or the operator assigns one from **Admin → Clientes** or **Admin → Activaciones → Nueva activación manual**).
+0. The operator onboards the customer from **Admin → Clientes → Nuevo cliente**: email, name, the team domains they may send from, and optionally an initial plan. No invitation round-trip: the customer signs in later with the same email (access code, Google or GitHub) and receives a welcome email with the instructions.
+1. The customer requests a plan from `/pricing` (or the operator assigns one from **Admin → Clientes** or **Admin → Activaciones → Nueva activación manual**). Plans are monthly packages: `emailsPerMonth` is enforced for every CLIENT plan, `-1` means unlimited.
 2. The operator confirms the payment out of band and approves the request, choosing a validity period (default 30 days, 0 = no expiry). The customer receives a confirmation email with the expiry date.
 3. A daily job (`plan-expiry-job.ts`, 08:00 UTC) emails a reminder 7 days and 1 day before expiry, then downgrades the customer to the `free` plan and marks the activation `EXPIRED`. Renewing is a new approval; it supersedes the previous period.
 4. Non-payers can be suspended per user from **Admin → Clientes** (`User.isBlocked`): their sends fail with `EMAIL_BLOCKED` and the dashboard shows the reason. The rest of the team is unaffected.

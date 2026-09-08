@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { PlanActivationService } from "~/server/service/plan-activation-service";
+import { ClientService } from "~/server/service/client-service";
 
 // Operator view of every CLIENT user: the people the SaaS actually bills.
 // Each row carries the user's individual plan, the activation that granted
@@ -96,6 +97,53 @@ export const adminClientsRouter = createTRPCRouter({
       }));
 
       return { total, clients, page: input.page, pageSize: input.pageSize };
+    }),
+
+  // Domains of a team with the CLIENT (if any) that currently holds each one,
+  // so the onboarding form can grant existing domains to a new customer.
+  teamDomains: adminProcedure
+    .input(z.object({ teamId: z.number() }))
+    .query(async ({ input }) => {
+      const domains = await db.domain.findMany({
+        where: { teamId: input.teamId },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          clientDomainAccesses: {
+            select: { user: { select: { id: true, email: true } } },
+          },
+        },
+        orderBy: { name: "asc" },
+      });
+      return domains.map((d) => ({
+        id: d.id,
+        name: d.name,
+        status: d.status,
+        holders: d.clientDomainAccesses.map((a) => a.user),
+      }));
+    }),
+
+  create: adminProcedure
+    .input(
+      z.object({
+        teamId: z.number(),
+        email: z.string().email(),
+        name: z.string().max(120).nullable().optional(),
+        domainIds: z.array(z.number()).max(50).optional(),
+        planId: z.number().nullable().optional(),
+        periodDays: z.number().int().min(0).max(3650).nullable().optional(),
+        paymentMethod: z.string().max(80).nullable().optional(),
+        paymentReference: z.string().max(200).nullable().optional(),
+        adminNotes: z.string().max(1000).nullable().optional(),
+        sendWelcomeEmail: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ClientService.createClient({
+        ...input,
+        adminUserId: ctx.session.user.id,
+      });
     }),
 
   setBlocked: adminProcedure

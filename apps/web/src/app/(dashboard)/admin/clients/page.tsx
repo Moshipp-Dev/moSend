@@ -55,6 +55,7 @@ export default function AdminClientsPage() {
   );
 
   const { data: plans } = api.adminPlans.list.useQuery();
+  const { data: teams } = api.adminTeams.list.useQuery({ page: 1, pageSize: 100 });
   const { data, isLoading } = api.adminClients.list.useQuery({
     search: search || undefined,
     planId: planFilter === "all" ? undefined : Number(planFilter),
@@ -119,6 +120,81 @@ export default function AdminClientsPage() {
     });
   };
 
+  // New client dialog ---------------------------------------------------------
+  const [newOpen, setNewOpen] = useState(false);
+  const [newTeamId, setNewTeamId] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newDomainIds, setNewDomainIds] = useState<number[]>([]);
+  const [newPlanId, setNewPlanId] = useState("");
+  const [newPeriodDays, setNewPeriodDays] = useState(DEFAULT_PERIOD_DAYS);
+  const [newPaymentMethod, setNewPaymentMethod] = useState("");
+  const [newPaymentReference, setNewPaymentReference] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [newWelcome, setNewWelcome] = useState(true);
+
+  const effectiveNewTeamId =
+    newTeamId || (teams?.teams.length === 1 ? String(teams.teams[0]!.id) : "");
+
+  const { data: teamDomains } = api.adminClients.teamDomains.useQuery(
+    { teamId: Number(effectiveNewTeamId) },
+    { enabled: newOpen && !!effectiveNewTeamId },
+  );
+
+  const closeNew = () => {
+    setNewOpen(false);
+    setNewTeamId("");
+    setNewEmail("");
+    setNewName("");
+    setNewDomainIds([]);
+    setNewPlanId("");
+    setNewPeriodDays(DEFAULT_PERIOD_DAYS);
+    setNewPaymentMethod("");
+    setNewPaymentReference("");
+    setNewNotes("");
+    setNewWelcome(true);
+  };
+
+  const createMutation = api.adminClients.create.useMutation({
+    onSuccess: async (result) => {
+      toast.success(
+        result.created
+          ? "Cliente creado" + (result.activationId ? " y plan activado" : "")
+          : "Cliente vinculado" + (result.activationId ? " y plan activado" : ""),
+      );
+      await invalidateAll();
+      closeNew();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const submitNew = () => {
+    if (!effectiveNewTeamId) {
+      toast.error("Selecciona un team");
+      return;
+    }
+    if (!newEmail.trim()) {
+      toast.error("Ingresa el email del cliente");
+      return;
+    }
+    const days = Number(newPeriodDays.trim());
+    createMutation.mutate({
+      teamId: Number(effectiveNewTeamId),
+      email: newEmail.trim(),
+      name: newName.trim() || null,
+      domainIds: newDomainIds,
+      planId: newPlanId ? Number(newPlanId) : null,
+      periodDays:
+        newPeriodDays.trim() === "" || !Number.isFinite(days)
+          ? undefined
+          : Math.max(0, Math.floor(days)),
+      paymentMethod: newPaymentMethod || null,
+      paymentReference: newPaymentReference || null,
+      adminNotes: newNotes || null,
+      sendWelcomeEmail: newWelcome,
+    });
+  };
+
   // Block / unblock dialog ----------------------------------------------------
   const [blockTarget, setBlockTarget] = useState<ClientRow | null>(null);
   const [blockReason, setBlockReason] = useState("");
@@ -139,12 +215,17 @@ export default function AdminClientsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xl font-semibold">Clientes</h2>
-        <Link
-          href="/admin/activations"
-          className="text-sm text-primary hover:underline"
-        >
-          Ver solicitudes de activación →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/activations"
+            className="text-sm text-primary hover:underline"
+          >
+            Ver solicitudes de activación →
+          </Link>
+          <Button size="sm" onClick={() => setNewOpen(true)}>
+            + Nuevo cliente
+          </Button>
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -295,8 +376,8 @@ export default function AdminClientsPage() {
               {data?.clients.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                    No hay clientes que coincidan. Los clientes se crean
-                    invitándolos con rol CLIENT desde Configuración → Equipo.
+                    No hay clientes que coincidan. Creá uno con "+ Nuevo
+                    cliente".
                   </td>
                 </tr>
               )}
@@ -326,6 +407,182 @@ export default function AdminClientsPage() {
           </div>
         </>
       )}
+
+      <Dialog open={newOpen} onOpenChange={(open) => !open && closeNew()}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo cliente</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Crea la cuenta del cliente con rol CLIENT, le asigna los dominios
+            desde los que puede enviar y, si elegís un plan, lo activa de
+            inmediato. El cliente ingresa con este mismo email por código de
+            acceso, Google o GitHub.
+          </p>
+
+          <div className="space-y-3">
+            {teams && teams.teams.length > 1 ? (
+              <label className="block text-sm">
+                Team
+                <Select value={effectiveNewTeamId} onValueChange={(v) => { setNewTeamId(v); setNewDomainIds([]); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un team" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {teams.teams.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        #{t.id} — {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            ) : null}
+
+            <label className="block text-sm">
+              Email del cliente
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="cliente@empresa.com"
+              />
+            </label>
+
+            <label className="block text-sm">
+              Nombre o empresa
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Acme S.A.S."
+              />
+            </label>
+
+            <div className="text-sm">
+              Dominios de envío
+              <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border p-2">
+                {teamDomains?.length ? (
+                  teamDomains.map((d) => {
+                    const checked = newDomainIds.includes(d.id);
+                    const holder = d.holders[0];
+                    return (
+                      <label key={d.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            setNewDomainIds((ids) =>
+                              e.target.checked
+                                ? [...ids, d.id]
+                                : ids.filter((id) => id !== d.id),
+                            )
+                          }
+                        />
+                        <span>{d.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {d.status === "SUCCESS" ? "verificado" : d.status.toLowerCase()}
+                          {holder ? ` · ya asignado a ${holder.email ?? holder.id}` : ""}
+                        </span>
+                      </label>
+                    );
+                  })
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    No hay dominios en el team. El cliente podrá agregar los
+                    suyos al ingresar.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <label className="block text-sm">
+              Plan inicial (opcional)
+              <Select value={newPlanId} onValueChange={setNewPlanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin plan por ahora (gratuito)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans
+                    ?.filter((p) => p.isActive)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name}
+                        {p.priceMonthly && Number(p.priceMonthly) > 0
+                          ? ` · ${p.currency} $${Number(p.priceMonthly).toFixed(2)}/mes`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            {newPlanId ? (
+              <>
+                <label className="block text-sm">
+                  Vigencia (días)
+                  <Input
+                    type="number"
+                    min={0}
+                    value={newPeriodDays}
+                    onChange={(e) => setNewPeriodDays(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    30 = un mes. 0 = sin vencimiento.
+                  </p>
+                </label>
+                <label className="block text-sm">
+                  Método de pago
+                  <Input
+                    value={newPaymentMethod}
+                    onChange={(e) => setNewPaymentMethod(e.target.value)}
+                    placeholder="Ej: Transferencia Bancolombia, Nequi"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Referencia de pago
+                  <Input
+                    value={newPaymentReference}
+                    onChange={(e) => setNewPaymentReference(e.target.value)}
+                    placeholder="TX #123456"
+                  />
+                </label>
+              </>
+            ) : null}
+
+            <label className="block text-sm">
+              Notas internas
+              <Textarea
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                rows={2}
+              />
+            </label>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={newWelcome}
+                onChange={(e) => setNewWelcome(e.target.checked)}
+              />
+              Enviar correo de bienvenida con instrucciones de acceso
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeNew}>
+              Cancelar
+            </Button>
+            <Button onClick={submitNew} disabled={createMutation.isPending}>
+              {createMutation.isPending ? (
+                <Spinner className="h-4 w-4" />
+              ) : (
+                "Crear cliente"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!assignTarget} onOpenChange={(open) => !open && closeAssign()}>
         <DialogContent>
