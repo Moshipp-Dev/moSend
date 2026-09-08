@@ -257,7 +257,7 @@ export class InvoiceService {
     put(invoice.user?.email ?? invoice.team.billingEmail ?? "", left, { size: 10 });
     nl(28);
 
-    rules.push({ x1: left, x2: right, y: y + 6 });
+    rules.push({ x1: left, x2: right, y: y + 14 });
     put("Concepto", left, { bold: true });
     put("Período", left + 260, { bold: true });
     put("Valor", right - 90, { bold: true });
