@@ -7,6 +7,7 @@ import { PlanService } from "~/server/service/plan-service";
 import { getThisMonthUsage } from "~/server/service/usage-service";
 import { handleError, UnsendApiError } from "../public-api/api-error";
 import { requireAdminKey } from "./auth";
+import { registerSalesRoutes } from "./sales";
 import { logger } from "../logger/log";
 
 function isUniqueConstraintError(err: unknown): boolean {
@@ -319,6 +320,8 @@ export function getAdminApp() {
     });
     return c.json({ ok: true });
   });
+
+  registerSalesRoutes(app, { jsonBody });
 
   return app;
 }

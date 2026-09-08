@@ -97,7 +97,38 @@ CLIENT quotas and blocks are enforced in every deployment mode, including `NEXT_
 - **Files:** `apps/web/src/server/service/plan-activation-service.ts`, `apps/web/src/server/jobs/plan-expiry-job.ts`, `apps/web/src/server/api/routers/admin-clients.ts`, `apps/web/src/app/(dashboard)/admin/clients/page.tsx`, plan lifecycle emails in `apps/web/src/server/mailer.ts`.
 - **Migrations:** `20260907120000_activation_expiry_and_user_block` (enum value `EXPIRED`, reminder timestamps, `User.isBlocked`) and `20260908000000_plan_invoices_and_system_block` (`PlanInvoice`, `User.blockedBySystem`).
 
-### 5. Deployment notes
+### 5. Admin API for sales automations
+
+Everything the operator does in **Admin → Clientes / Facturas / Activaciones** is also available over HTTP at `/api/admin/*`, for n8n, scripts or the portal. Authentication is `Authorization: Bearer <PORTAL_ADMIN_API_KEY>` (same key the portal uses); actions are attributed to the `ADMIN_EMAIL` user, else the first platform admin, else the team's first ADMIN. Plans can be referenced by `planId` or `planKey`; `teamId` may be omitted on a single-team install.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/admin/plans` | Catalogue with prices and limits |
+| GET | `/admin/clients?search&planId&blocked&page&pageSize` | List CLIENT users with plan, expiry, last invoice and block state |
+| POST | `/admin/clients` | Create/link a client: `{ email, name?, domainIds?, planKey?/planId?, periodDays?, paymentMethod?, paymentReference?, sendWelcomeEmail? }` |
+| GET | `/admin/clients/:userId` | Client with domains, activations and invoices |
+| POST | `/admin/clients/:userId/plan` | Assign or renew: `{ planKey|planId, periodDays?, paymentMethod?, paymentReference?, adminNotes? }` (records the payment, emails the factura) |
+| POST | `/admin/clients/:userId/invoices` | Issue a cuenta de cobro: `{ planKey|planId, periodDays? }` (emailed with PDF) |
+| POST / DELETE | `/admin/clients/:userId/domains` | Grant / revoke domains: `{ domainIds }` |
+| POST | `/admin/clients/:userId/block` · `/unblock` | Suspend (`{ reason? }`) or reactivate |
+| GET | `/admin/invoices?status&search&page` | All invoices with per-currency totals |
+| GET | `/admin/invoices/:id` · `/pdf` | Invoice detail · PDF download |
+| POST | `/admin/invoices/:id/pay` | Register the payment: `{ paymentMethod?, paymentReference? }` (activates/renews the plan) |
+| POST | `/admin/invoices/:id/void` · `/resend` | Void a pending invoice · resend the email |
+| GET | `/admin/activations?status&page` | Activation requests |
+| POST | `/admin/activations/:id/approve` · `/reject` | Approve (`{ periodDays?, paymentReference? }`) or reject (`{ rejectionReason }`) |
+
+Errors follow `{ "error": { "code", "message" } }` with the matching HTTP status. Example, selling a plan to a new customer in one call:
+
+```bash
+curl -X POST https://mails.mosend.dev/api/admin/clients \
+  -H "Authorization: Bearer $PORTAL_ADMIN_API_KEY" -H "content-type: application/json" \
+  -d '{"email":"cliente@acme.com","name":"Acme SAS","planKey":"orbita","periodDays":30,"paymentMethod":"Transferencia","paymentReference":"TX-123"}'
+```
+
+- **Files:** `apps/web/src/server/admin-api/sales.ts` (routes), `apps/web/src/server/admin-api/sales.api.test.ts`.
+
+### 6. Deployment notes
 
 If you self-host the SMTP relay on a platform that does rolling updates (e.g. EasyPanel with `zeroDowntime: true`), make sure **zero-downtime is disabled for the SMTP service**. SMTP servers bind fixed TCP ports (465, 587) which cannot be held by two containers simultaneously, so a rolling update will always fail health-check and roll back to the old container. With zero-downtime off the old container stops first and the new one starts cleanly.
 
