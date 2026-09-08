@@ -36,8 +36,12 @@ export default function AdminPlansPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const deleteMutation = api.adminPlans.delete.useMutation({
-    onSuccess: async () => {
-      toast.success("Plan eliminado");
+    onSuccess: async (result) => {
+      toast.success(
+        result.mode === "deleted"
+          ? "Plan eliminado"
+          : "Plan retirado del catálogo: ya tenía clientes, activaciones o facturas asociadas, así que se conserva como inactivo",
+      );
       await utils.adminPlans.list.invalidate();
       setDeleteTarget(null);
     },
@@ -113,7 +117,7 @@ export default function AdminPlansPage() {
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={`Eliminar el plan ${deleteTarget?.name ?? ""}`}
-        description="Si algún cliente o team lo tiene asignado, el plan solo se desactiva y deja de aparecer en /pricing; si nadie lo usa, se borra definitivamente."
+        description="Si el plan ya se usó (clientes, activaciones o facturas), se retira del catálogo y queda inactivo para conservar el historial; si nunca se usó, se borra definitivamente."
         confirmLabel="Eliminar"
         destructive
         pending={deleteMutation.isPending}

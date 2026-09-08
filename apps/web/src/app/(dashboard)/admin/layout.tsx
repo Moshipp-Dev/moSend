@@ -27,13 +27,10 @@ const CLOUD_ONLY: NavItem[] = [
   { href: "/admin/waitlist", label: "Waitlist" },
 ];
 
-function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
+function NavTabs({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
   return (
-    <div className="flex items-center gap-1">
-      <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
+    <>
       {items.map((item) => {
         const active = item.exact
           ? pathname === item.href
@@ -42,28 +39,34 @@ function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+            aria-current={active ? "page" : undefined}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
               active
-                ? "bg-accent font-medium text-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-foreground font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
             }`}
           >
             {item.label}
           </Link>
         );
       })}
-    </div>
+    </>
   );
 }
 
+// Underline tabs in one row. Sales tabs first, a thin divider, then the
+// platform tabs; the divider is the only grouping cue so the bar never reads
+// as two separate menus.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const platform = isCloud() ? [...PLATFORM, ...CLOUD_ONLY] : PLATFORM;
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
+      <div className="space-y-2">
         <h1 className="text-lg font-bold">Administración</h1>
-        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b pb-3">
-          <NavGroup label="Ventas" items={SALES} />
-          <NavGroup label="Plataforma" items={isCloud() ? [...PLATFORM, ...CLOUD_ONLY] : PLATFORM} />
+        <nav className="flex flex-wrap items-end border-b">
+          <NavTabs items={SALES} />
+          <span aria-hidden className="mx-2 mb-2 h-5 w-px self-center bg-border" />
+          <NavTabs items={platform} />
         </nav>
       </div>
       <div>{children}</div>

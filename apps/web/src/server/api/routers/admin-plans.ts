@@ -91,13 +91,17 @@ export const adminPlansRouter = createTRPCRouter({
   delete: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      const [teamCount, userCount] = await Promise.all([
+      // Anything that still points at the plan (teams, CLIENT users,
+      // activation history, invoices) makes a hard delete impossible or
+      // destroys the audit trail, so those plans are retired instead.
+      const [teamCount, userCount, activationCount, invoiceCount] = await Promise.all([
         db.team.count({ where: { pricingPlanId: input.id } }),
         db.user.count({ where: { pricingPlanId: input.id } }),
+        db.planActivationRequest.count({ where: { planId: input.id } }),
+        db.planInvoice.count({ where: { planId: input.id } }),
       ]);
-      if (teamCount + userCount > 0) {
-        // Soft delete: mark inactive so existing teams keep their reference,
-        // but the plan stops appearing in /pricing and admin defaults.
+      const referenced = teamCount + userCount + activationCount + invoiceCount > 0;
+      if (referenced) {
         await db.pricingPlan.update({
           where: { id: input.id },
           data: { isActive: false },
@@ -106,5 +110,6 @@ export const adminPlansRouter = createTRPCRouter({
         await db.pricingPlan.delete({ where: { id: input.id } });
       }
       await PlanService.invalidate();
+      return { mode: referenced ? ("retired" as const) : ("deleted" as const) };
     }),
 });
