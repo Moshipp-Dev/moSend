@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { isEntitledSubscriptionStatus } from "~/lib/subscription-status";
 import type {
   CheckoutParams,
   CheckoutResult,
@@ -213,7 +214,7 @@ async function syncStripeDataForCustomer(stripe: Stripe, customerId: string) {
     pricingPlan: nextPricingPlan
       ? { connect: { id: nextPricingPlan.id } }
       : { disconnect: true },
-    isActive: subscription.status === "active",
+    isActive: isEntitledSubscriptionStatus(subscription.status),
   });
 
   if (!wasPaid && isNowPaid) {

@@ -3,6 +3,8 @@ import { Readable } from "stream";
 import dotenv from "dotenv";
 import { simpleParser } from "mailparser";
 import { readFileSync, watch, FSWatcher } from "fs";
+import { extractForwardedHeaders } from "./email-headers";
+import { resolveRecipients } from "./recipients";
 
 dotenv.config();
 
@@ -89,6 +91,12 @@ const serverOptions: SMTPServerOptions = {
         return callback(new Error("No API key found in session"));
       }
 
+      const forwardedHeaders = extractForwardedHeaders(parsed.headerLines);
+      const { to, cc, bcc } = resolveRecipients(
+        parsed,
+        session.envelope.rcptTo.map((recipient) => recipient.address),
+      );
+
       const MAX_ATTACHMENTS = 10;
       const MAX_ATTACHMENT_BYTES = 10485760; // 10 MB (matches server-level size limit)
 
@@ -108,8 +116,8 @@ const serverOptions: SMTPServerOptions = {
                 return isBuffer && withinSize;
               })
               .slice(0, MAX_ATTACHMENTS)
-              .map((att) => ({
-                filename: att.filename ?? att.contentType ?? "attachment",
+              .map((att, index) => ({
+                filename: att.filename || `attachment-${index + 1}`,
                 content: att.content.toString("base64"),
               }))
           : undefined;
@@ -117,9 +125,7 @@ const serverOptions: SMTPServerOptions = {
       console.log(`Attachments to forward: ${attachments?.length ?? 0}`);
 
       const emailObject = {
-        to: Array.isArray(parsed.to)
-          ? parsed.to.map((addr) => addr.text).join(", ")
-          : parsed.to?.text,
+        to,
         from: Array.isArray(parsed.from)
           ? parsed.from.map((addr) => addr.text).join(", ")
           : parsed.from?.text,
@@ -127,6 +133,9 @@ const serverOptions: SMTPServerOptions = {
         text: parsed.text,
         html: parsed.html || undefined,
         replyTo: parsed.replyTo?.text,
+        cc,
+        bcc,
+        headers: forwardedHeaders,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
       };
 

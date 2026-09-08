@@ -31,15 +31,19 @@ export const env = createEnv({
     ),
     GITHUB_ID: z.string().optional(),
     GITHUB_SECRET: z.string().optional(),
-    AWS_ACCESS_KEY: z.string(),
-    AWS_SECRET_KEY: z.string(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
     USESEND_API_KEY: z.string().optional(),
     UNSEND_API_KEY: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     AWS_SES_ENDPOINT: z.string().optional(),
     AWS_SNS_ENDPOINT: z.string().optional(),
-    AWS_DEFAULT_REGION: z.string().default("us-east-1"),
+    AWS_DEFAULT_REGION: z
+      .string()
+      .trim()
+      .min(1, "Region is required")
+      .default("us-east-1"),
     API_RATE_LIMIT: z
       .string()
       .default("1")
@@ -102,8 +106,8 @@ export const env = createEnv({
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     GITHUB_ID: process.env.GITHUB_ID,
     GITHUB_SECRET: process.env.GITHUB_SECRET,
-    AWS_ACCESS_KEY: process.env.AWS_ACCESS_KEY,
-    AWS_SECRET_KEY: process.env.AWS_SECRET_KEY,
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY,
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_KEY,
     USESEND_API_KEY: process.env.USESEND_API_KEY,
     UNSEND_API_KEY: process.env.UNSEND_API_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,

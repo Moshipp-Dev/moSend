@@ -1,17 +1,17 @@
 # Stage 1: Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Force full rebuild on each deploy (change this value to bust cache)
 ARG CACHEBUST=2026-04-14
 
 # Install pnpm (package manager) globally
-RUN npm install -g pnpm
+RUN npm install -g pnpm@11.11.0
 
 # Set working directory for the application
 WORKDIR /app
 
 # Copy configuration files first
-COPY package.json tsconfig.json tsup.config.ts ./
+COPY package.json pnpm-workspace.yaml tsconfig.json tsup.config.ts ./
 
 # Install dependencies (including devDependencies)
 RUN pnpm install
@@ -27,7 +27,7 @@ RUN pnpm run build
 RUN pnpm prune --prod
 
 # Stage 2: Production stage
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 # Set working directory in the final image
 WORKDIR /app

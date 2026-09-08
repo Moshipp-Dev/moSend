@@ -32,8 +32,8 @@ useSend depends on AWS SES to send emails and SNS to receive email status. The R
 Add the following environment variables in Railway.
 
 ```env
-AWS_ACCESS_KEY=<access-key-id>
-AWS_SECRET_KEY=<secret-access-key>
+AWS_ACCESS_KEY_ID=<access-key-id>
+AWS_SECRET_ACCESS_KEY=<secret-access-key>
 ```
 
 <Tip>
@@ -48,6 +48,10 @@ AWS_SECRET_KEY=<secret-access-key>
 Use this link to [create a GitHub app](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/about-creating-github-apps)
 
 Callback URL : `https://<your-railway-domain>/api/auth/callback/github`
+
+Under **Permissions & events**, set **Account permissions → Email addresses**
+to **Read-only**. useSend needs the authenticated user's email address to match
+new accounts to team invitations.
 
 ![github app](/images/github-callback.png)
 

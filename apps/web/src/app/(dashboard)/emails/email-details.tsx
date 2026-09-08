@@ -20,6 +20,7 @@ import {
   COMPLAINT_ERROR_MESSAGES,
   DELIVERY_DELAY_ERRORS,
 } from "@usesend/lib/src/constants/ses-errors";
+import { getEmailPreviewSrcDoc } from "~/lib/email-preview";
 import CancelEmail from "./cancel-email";
 import { Paperclip } from "lucide-react";
 import { useEffect } from "react";
@@ -120,7 +121,10 @@ export default function EmailDetails({ emailId }: { emailId: string }) {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2, delay: 0.3 }}
           >
-            <EmailPreview html={emailQuery.data?.html ?? ""} />
+            <EmailPreview
+              html={emailQuery.data?.html}
+              text={emailQuery.data?.text}
+            />
           </motion.div>
         </div>
         {emailQuery.data?.latestStatus !== "SCHEDULED" ? (
@@ -164,7 +168,13 @@ export default function EmailDetails({ emailId }: { emailId: string }) {
   );
 }
 
-const EmailPreview = ({ html }: { html: string }) => {
+const EmailPreview = ({
+  html,
+  text,
+}: {
+  html: string | null | undefined;
+  text: string | null | undefined;
+}) => {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -175,9 +185,21 @@ const EmailPreview = ({ html }: { html: string }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  const srcDoc = getEmailPreviewSrcDoc(html, text);
+
   if (!show) {
     return (
       <div className="dark:bg-slate-200 h-[350px] overflow-visible rounded border-t"></div>
+    );
+  }
+
+  if (!srcDoc) {
+    return (
+      <div className="dark:bg-slate-200 h-[350px] overflow-visible rounded border-t flex items-center justify-center">
+        <span className="text-sm text-muted-foreground dark:text-slate-500">
+          No content to preview
+        </span>
+      </div>
     );
   }
 
@@ -185,7 +207,7 @@ const EmailPreview = ({ html }: { html: string }) => {
     <div className="dark:bg-slate-200 h-[350px] overflow-visible rounded border-t">
       <iframe
         className="w-full h-full"
-        srcDoc={html}
+        srcDoc={srcDoc}
         sandbox="allow-same-origin"
       />
     </div>
