@@ -2,6 +2,10 @@ import { z } from "zod";
 import { createTRPCRouter, teamProcedure } from "~/server/api/trpc";
 import { emailTimeSeries, reputationMetricsData } from "~/server/service/dashboard-service";
 
+// Sentinel domain id that matches no row; used to scope CLIENTs that hold no
+// domain yet instead of silently widening to the whole team.
+const NO_DOMAIN = -1;
+
 export const dashboardRouter = createTRPCRouter({
   emailTimeSeries: teamProcedure
     .input(
@@ -21,9 +25,11 @@ export const dashboardRouter = createTRPCRouter({
           select: { domainId: true },
         });
         const clientDomainIds = accesses.map((a) => a.domainId);
+        // A CLIENT without domains must see nothing, never the team totals:
+        // an impossible domain id keeps the queries scoped and empty.
         domainId = input.domain && clientDomainIds.includes(input.domain)
           ? input.domain
-          : clientDomainIds[0];
+          : (clientDomainIds[0] ?? NO_DOMAIN);
       }
 
       const response = await emailTimeSeries({
@@ -53,7 +59,7 @@ export const dashboardRouter = createTRPCRouter({
         const clientDomainIds = accesses.map((a) => a.domainId);
         domainId = input.domain && clientDomainIds.includes(input.domain)
           ? input.domain
-          : clientDomainIds[0];
+          : (clientDomainIds[0] ?? NO_DOMAIN);
       }
 
       const response = await reputationMetricsData({ team, domain: domainId });

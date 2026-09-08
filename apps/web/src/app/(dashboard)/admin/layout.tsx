@@ -21,6 +21,9 @@ export default function AdminLayout({
         <SettingsNavButton href="/admin/activations">
           Activaciones
         </SettingsNavButton>
+        <SettingsNavButton href="/admin/invoices">
+          Facturas
+        </SettingsNavButton>
         <SettingsNavButton href="/admin/plans">
           Planes
         </SettingsNavButton>

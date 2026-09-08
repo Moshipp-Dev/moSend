@@ -226,6 +226,22 @@ export default function AdminClientsPage() {
     });
   };
 
+  // Cuenta de cobro dialog ----------------------------------------------------
+  const [issueTarget, setIssueTarget] = useState<ClientRow | null>(null);
+  const [issuePlanId, setIssuePlanId] = useState("");
+  const [issuePeriodDays, setIssuePeriodDays] = useState(DEFAULT_PERIOD_DAYS);
+
+  const issueMutation = api.adminClients.issueInvoice.useMutation({
+    onSuccess: async (inv) => {
+      toast.success(`Cuenta de cobro ${inv.number} enviada al cliente`);
+      await invalidateAll();
+      setIssueTarget(null);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const billablePlans = plans?.filter((p) => p.isActive && Number(p.priceMonthly) > 0) ?? [];
+
   // Block / unblock dialog ----------------------------------------------------
   const [blockTarget, setBlockTarget] = useState<ClientRow | null>(null);
   const [blockReason, setBlockReason] = useState("");
@@ -399,6 +415,21 @@ export default function AdminClientsPage() {
                     <div className="flex justify-end gap-2">
                       <Button size="sm" onClick={() => openAssign(c)}>
                         {c.activeActivation ? "Renovar" : "Asignar plan"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIssueTarget(c);
+                          setIssuePlanId(
+                            c.plan && Number(plans?.find((p) => p.id === c.plan!.id)?.priceMonthly ?? 0) > 0
+                              ? String(c.plan.id)
+                              : "",
+                          );
+                          setIssuePeriodDays(DEFAULT_PERIOD_DAYS);
+                        }}
+                      >
+                        Cuenta de cobro
                       </Button>
                       {c.isBlocked ? (
                         <Button
@@ -729,6 +760,71 @@ export default function AdminClientsPage() {
               ) : (
                 "Activar"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!issueTarget} onOpenChange={(open) => !open && setIssueTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Emitir cuenta de cobro</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {issueTarget?.email ?? ""} recibe por correo la cuenta de cobro en
+            PDF. Cuando pague, registrás el pago en Admin → Facturas y el plan
+            se activa o renueva por ese período. Si ya tiene un período
+            vigente del mismo plan, el nuevo empieza cuando termine el actual.
+          </p>
+          <div className="space-y-3">
+            <label className="block text-sm">
+              Plan a cobrar
+              <Select value={issuePlanId} onValueChange={setIssuePlanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un plan con precio" />
+                </SelectTrigger>
+                <SelectContent>
+                  {billablePlans.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name} · {p.currency} ${Number(p.priceMonthly).toFixed(2)}/mes
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {billablePlans.length === 0 ? (
+                <p className="mt-1 text-xs text-destructive">
+                  Ningún plan tiene precio. Cargalos en Admin → Planes.
+                </p>
+              ) : null}
+            </label>
+            <label className="block text-sm">
+              Período a cobrar (días)
+              <Input
+                type="number"
+                min={1}
+                value={issuePeriodDays}
+                onChange={(e) => setIssuePeriodDays(e.target.value)}
+              />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssueTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={issueMutation.isPending || !issuePlanId}
+              onClick={() => {
+                if (!issueTarget || !issuePlanId) return;
+                const days = Number(issuePeriodDays.trim());
+                issueMutation.mutate({
+                  teamId: issueTarget.team.id,
+                  userId: issueTarget.userId,
+                  planId: Number(issuePlanId),
+                  periodDays: Number.isFinite(days) && days > 0 ? Math.floor(days) : null,
+                });
+              }}
+            >
+              {issueMutation.isPending ? <Spinner className="h-4 w-4" /> : "Emitir y enviar"}
             </Button>
           </DialogFooter>
         </DialogContent>

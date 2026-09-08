@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import type { PlanInvoice } from "@prisma/client";
+import type { PlanInvoice, PlanInvoiceStatus } from "@prisma/client";
 import { db } from "~/server/db";
 import { env } from "~/env";
 import { logger } from "../logger/log";
@@ -176,6 +176,90 @@ export class InvoiceService {
       },
       data: { status: "VOID" },
     });
+  }
+
+  static async getById(id: string): Promise<PlanInvoice | null> {
+    return db.planInvoice.findUnique({ where: { id } });
+  }
+
+  // Operator listing with per-currency totals of what is pending and what
+  // was collected in the current month.
+  static async listAll(opts: {
+    status?: PlanInvoiceStatus;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = opts.page ?? 1;
+    const pageSize = opts.pageSize ?? 25;
+    const where: Prisma.PlanInvoiceWhereInput = {
+      ...(opts.status ? { status: opts.status } : {}),
+      ...(opts.search
+        ? {
+            OR: [
+              { number: { contains: opts.search, mode: "insensitive" } },
+              { planName: { contains: opts.search, mode: "insensitive" } },
+              { user: { email: { contains: opts.search, mode: "insensitive" } } },
+              { user: { name: { contains: opts.search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+
+    const [total, invoices, pending, paidThisMonth] = await Promise.all([
+      db.planInvoice.count({ where }),
+      db.planInvoice.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, email: true, isBlocked: true } },
+          team: { select: { id: true, name: true } },
+        },
+        orderBy: { issuedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.planInvoice.groupBy({
+        by: ["currency"],
+        where: { status: "ISSUED" },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      db.planInvoice.groupBy({
+        by: ["currency"],
+        where: { status: "PAID", paidAt: { gte: monthStart } },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const toTotals = (rows: typeof pending) =>
+      rows.map((r) => ({
+        currency: r.currency,
+        amount: Number(r._sum.amount ?? 0),
+        count: r._count._all,
+      }));
+
+    return {
+      total,
+      page,
+      pageSize,
+      invoices: invoices.map((i) => ({ ...i, amount: Number(i.amount) })),
+      totals: { pending: toTotals(pending), paidThisMonth: toTotals(paidThisMonth) },
+    };
+  }
+
+  static async void(id: string): Promise<PlanInvoice> {
+    const invoice = await db.planInvoice.findUnique({ where: { id } });
+    if (!invoice) {
+      throw new Error("Factura no encontrada");
+    }
+    if (invoice.status !== "ISSUED") {
+      throw new Error("Solo se pueden anular cuentas de cobro pendientes");
+    }
+    return db.planInvoice.update({ where: { id }, data: { status: "VOID" } });
   }
 
   static async listForUser(userId: number, limit = 24) {

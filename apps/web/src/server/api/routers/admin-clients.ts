@@ -186,6 +186,26 @@ export const adminClientsRouter = createTRPCRouter({
       return { filename: rendered.filename, base64: rendered.pdf.toString("base64") };
     }),
 
+  // Cuenta de cobro ahead of a sale or renewal; the client receives it by
+  // email with the PDF and the operator registers the payment later from
+  // Admin → Facturas.
+  issueInvoice: adminProcedure
+    .input(
+      z.object({
+        teamId: z.number(),
+        userId: z.number(),
+        planId: z.number(),
+        periodDays: z.number().int().min(1).max(3650).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await PlanActivationService.issueInvoice({
+        ...input,
+        adminUserId: ctx.session.user.id,
+      });
+      return { id: invoice.id, number: invoice.number };
+    }),
+
   setBlocked: adminProcedure
     .input(
       z.object({

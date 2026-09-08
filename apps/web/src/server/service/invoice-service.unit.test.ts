@@ -10,6 +10,7 @@ const { mockDb } = vi.hoisted(() => ({
       create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }));
@@ -174,6 +175,32 @@ describe("InvoiceService", () => {
     // xref offset must point at the xref table
     const startxref = Number(/startxref\n(\d+)/.exec(text)![1]);
     expect(text.slice(startxref, startxref + 4)).toBe("xref");
+  });
+
+  it("listAll returns per-currency totals", async () => {
+    mockDb.planInvoice.count.mockResolvedValue(1);
+    mockDb.planInvoice.findMany.mockResolvedValue([
+      { id: "a", amount: 19, currency: "USD", user: null, team: { id: 1, name: "T" } },
+    ]);
+    mockDb.planInvoice.groupBy
+      .mockResolvedValueOnce([{ currency: "USD", _sum: { amount: 38 }, _count: { _all: 2 } }])
+      .mockResolvedValueOnce([]);
+
+    const result = await InvoiceService.listAll({ status: "ISSUED" });
+
+    expect(result.invoices[0]!.amount).toBe(19);
+    expect(result.totals.pending).toEqual([{ currency: "USD", amount: 38, count: 2 }]);
+    expect(result.totals.paidThisMonth).toEqual([]);
+  });
+
+  it("void only applies to pending invoices", async () => {
+    mockDb.planInvoice.findUnique.mockResolvedValue({ id: "a", status: "PAID" });
+    await expect(InvoiceService.void("a")).rejects.toThrow(/pendientes/);
+
+    mockDb.planInvoice.findUnique.mockResolvedValue({ id: "b", status: "ISSUED" });
+    mockDb.planInvoice.update.mockResolvedValue({ id: "b", status: "VOID" });
+    const voided = await InvoiceService.void("b");
+    expect(voided.status).toBe("VOID");
   });
 
   it("formats money without throwing on unknown currencies", () => {

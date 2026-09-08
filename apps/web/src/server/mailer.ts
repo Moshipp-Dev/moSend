@@ -181,29 +181,77 @@ export async function sendPlanActivatedEmail(
   opts: {
     planName: string;
     expiresAt: Date | null;
-    invoice?: { number: string; attachment: PlanEmailAttachment } | null;
+    periodStart?: Date | null;
+    invoice?: {
+      number: string;
+      amountLabel?: string;
+      attachment: PlanEmailAttachment;
+    } | null;
   }
 ) {
+  const startsLater =
+    opts.periodStart && opts.periodStart.getTime() > Date.now() + 60_000;
   const validity = opts.expiresAt
-    ? `Tu plan tiene vigencia hasta el ${formatSpanishDate(opts.expiresAt)}. Te avisaremos unos días antes para que lo renueves sin interrupciones.`
+    ? startsLater
+      ? `Tu período actual sigue vigente y el nuevo corre desde el ${formatSpanishDate(opts.periodStart!)} hasta el ${formatSpanishDate(opts.expiresAt)}. Te avisaremos unos días antes de que venza.`
+      : `Tu plan tiene vigencia hasta el ${formatSpanishDate(opts.expiresAt)}. Te avisaremos unos días antes para que lo renueves sin interrupciones.`
     : "Tu plan no tiene fecha de vencimiento.";
-  const paragraphs = [
-    "Hola,",
-    `Activamos tu plan ${opts.planName} en moSend. Ya podés enviar correos con los límites de tu nuevo plan.`,
-    validity,
-  ];
+  const paragraphs = ["Hola,"];
   if (opts.invoice) {
     paragraphs.push(
-      `Adjuntamos la factura ${opts.invoice.number} con el detalle del pago registrado.`
+      `Registramos tu pago${opts.invoice.amountLabel ? ` por ${opts.invoice.amountLabel}` : ""} y tu plan ${opts.planName} en moSend queda activo. Adjuntamos la factura ${opts.invoice.number} como comprobante.`
+    );
+  } else {
+    paragraphs.push(
+      `Activamos tu plan ${opts.planName} en moSend. Ya podés enviar correos con los límites de tu nuevo plan.`
+    );
+  }
+  paragraphs.push(validity);
+
+  await sendPlanEmail(
+    email,
+    opts.invoice
+      ? `Pago recibido: factura ${opts.invoice.number} · plan ${opts.planName} activo`
+      : `Tu plan ${opts.planName} está activo`,
+    paragraphs,
+    { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` },
+    opts.invoice ? [opts.invoice.attachment] : undefined
+  );
+}
+
+// Standalone invoice mail: a cuenta de cobro issued by the operator, or a
+// factura re-sent on request.
+export async function sendInvoiceEmail(
+  email: string,
+  opts: {
+    kind: "pending" | "paid";
+    number: string;
+    planName: string;
+    amountLabel: string;
+    dueAt?: Date | null;
+    attachment: PlanEmailAttachment;
+  }
+) {
+  const paragraphs = ["Hola,"];
+  if (opts.kind === "pending") {
+    paragraphs.push(
+      `Adjuntamos la cuenta de cobro ${opts.number} por ${opts.amountLabel}, correspondiente al plan ${opts.planName} en moSend${opts.dueAt ? `, con vencimiento el ${formatSpanishDate(opts.dueAt)}` : ""}.`,
+      "Realizá el pago por transferencia o el medio acordado y respondé este correo con el comprobante. Al confirmarlo activamos o renovamos tu plan de inmediato."
+    );
+  } else {
+    paragraphs.push(
+      `Adjuntamos la factura ${opts.number} por ${opts.amountLabel} del plan ${opts.planName} en moSend, correspondiente al pago que ya registramos. Gracias.`
     );
   }
 
   await sendPlanEmail(
     email,
-    `Tu plan ${opts.planName} está activo`,
+    opts.kind === "pending"
+      ? `Cuenta de cobro ${opts.number} · plan ${opts.planName}`
+      : `Factura ${opts.number} · plan ${opts.planName}`,
     paragraphs,
     { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` },
-    opts.invoice ? [opts.invoice.attachment] : undefined
+    [opts.attachment]
   );
 }
 

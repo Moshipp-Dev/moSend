@@ -51,6 +51,7 @@ const { mockDb, mockTeamService, mockPlanService, mockMailer, mockInvoice } = vi
       sendPlanExpiringEmail: vi.fn(),
       sendPlanExpiredEmail: vi.fn(),
       sendPlanSuspendedEmail: vi.fn(),
+      sendInvoiceEmail: vi.fn(),
     },
     mockInvoice: {
       isBillable: vi.fn(),
@@ -59,6 +60,7 @@ const { mockDb, mockTeamService, mockPlanService, mockMailer, mockInvoice } = vi
       findOpenForUser: vi.fn(),
       voidOpenForUser: vi.fn(),
       renderPdfById: vi.fn(),
+      getById: vi.fn(),
     },
   };
 });
@@ -679,6 +681,115 @@ describe("PlanActivationService", () => {
       const data = mockDb.user.update.mock.calls[0]![0].data;
       expect(data.isBlocked).toBeUndefined();
       expect(mockInvoice.recordPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("period continuity", () => {
+    it("a renewal of the same plan starts when the current period ends", async () => {
+      const now = Date.now();
+      const currentEnd = new Date(now + 5 * 86_400_000);
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5, key: "orbita", name: "Órbita", isActive: true, priceMonthly: 0, currency: "USD",
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99, role: "CLIENT" });
+      mockDb.planActivationRequest.findFirst.mockResolvedValue({ expiresAt: currentEnd });
+      mockDb.planActivationRequest.create.mockResolvedValue({ id: "req_renew" });
+
+      await PlanActivationService.manualAssign({
+        teamId: 10, planId: 5, adminUserId: 7, targetUserId: 99, periodDays: 30,
+      });
+
+      const data = mockDb.planActivationRequest.create.mock.calls[0]![0].data;
+      const expected = currentEnd.getTime() + 30 * 86_400_000;
+      expect(Math.abs(data.expiresAt.getTime() - expected)).toBeLessThan(1000);
+      expect(mockDb.planActivationRequest.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ targetUserId: 99, planId: 5, status: "APPROVED" }),
+        }),
+      );
+    });
+  });
+
+  describe("registerInvoicePayment", () => {
+    it("activates the invoiced plan for the invoiced period and settles it", async () => {
+      mockInvoice.getById.mockResolvedValue({
+        id: "inv_1", number: "MS-2026-0003", status: "ISSUED", userId: 99, teamId: 10, planId: 5,
+        periodStart: new Date("2026-10-07T00:00:00Z"), periodEnd: new Date("2026-11-06T00:00:00Z"),
+      });
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5, key: "orbita", name: "Órbita", isActive: true, priceMonthly: 19, currency: "USD",
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99, role: "CLIENT" });
+      mockDb.planActivationRequest.create.mockResolvedValue({ id: "req_pay" });
+      mockInvoice.isBillable.mockReturnValue(true);
+      mockInvoice.recordPayment.mockResolvedValue({ id: "inv_1", number: "MS-2026-0003", amount: 19, currency: "USD" });
+      mockInvoice.renderPdfById.mockResolvedValue({ filename: "factura-MS-2026-0003.pdf", pdf: Buffer.from("%PDF") });
+      mockDb.user.findUnique.mockResolvedValue({ email: "cliente@acme.com" });
+
+      await PlanActivationService.registerInvoicePayment({
+        invoiceId: "inv_1", adminUserId: 7, paymentMethod: "Nequi", paymentReference: "N-1",
+      });
+
+      const data = mockDb.planActivationRequest.create.mock.calls[0]![0].data;
+      expect(data.planId).toBe(5);
+      expect(data.targetUserId).toBe(99);
+      expect(data.adminNotes).toBe("Pago de MS-2026-0003");
+      expect(mockInvoice.recordPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentReference: "N-1", userId: 99 }),
+      );
+      expect(mockMailer.sendPlanActivatedEmail).toHaveBeenCalledWith(
+        "cliente@acme.com",
+        expect.objectContaining({ invoice: expect.objectContaining({ amountLabel: "USD 19.00" }) }),
+      );
+    });
+
+    it("refuses paid or voided invoices", async () => {
+      mockInvoice.getById.mockResolvedValue({ id: "inv_1", status: "PAID", userId: 99 });
+      await expect(
+        PlanActivationService.registerInvoicePayment({ invoiceId: "inv_1", adminUserId: 7 }),
+      ).rejects.toThrow(/pendiente/);
+    });
+  });
+
+  describe("issueInvoice", () => {
+    it("creates a pending cuenta de cobro for the next period and emails it", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5, key: "orbita", name: "Órbita", isActive: true, priceMonthly: 19, currency: "USD",
+      });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99 });
+      mockDb.planActivationRequest.findFirst.mockResolvedValue(null);
+      mockInvoice.isBillable.mockReturnValue(true);
+      mockInvoice.createPending.mockResolvedValue({
+        id: "inv_9", number: "MS-2026-0009", status: "ISSUED", teamId: 10, userId: 99,
+        planName: "Órbita", amount: 19, currency: "USD", dueAt: new Date(),
+      });
+      mockInvoice.renderPdfById.mockResolvedValue({ filename: "cuenta-de-cobro-MS-2026-0009.pdf", pdf: Buffer.from("%PDF") });
+      mockDb.user.findUnique.mockResolvedValue({ email: "cliente@acme.com" });
+
+      const invoice = await PlanActivationService.issueInvoice({
+        teamId: 10, userId: 99, planId: 5, periodDays: 30, adminUserId: 7,
+      });
+
+      expect(invoice.number).toBe("MS-2026-0009");
+      expect(mockInvoice.createPending).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 99, activationRequestId: null }),
+      );
+      expect(mockMailer.sendInvoiceEmail).toHaveBeenCalledWith(
+        "cliente@acme.com",
+        expect.objectContaining({ kind: "pending", number: "MS-2026-0009", amountLabel: "USD 19.00" }),
+      );
+    });
+
+    it("refuses free plans", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 1, key: "free", name: "Free", isActive: true, priceMonthly: 0, currency: "USD",
+      });
+      mockInvoice.isBillable.mockReturnValue(false);
+      await expect(
+        PlanActivationService.issueInvoice({ teamId: 10, userId: 99, planId: 1, adminUserId: 7 }),
+      ).rejects.toThrow(/no tiene precio/);
     });
   });
 

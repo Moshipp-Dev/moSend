@@ -5,6 +5,7 @@ import { TeamService } from "./team-service";
 import { PlanService } from "./plan-service";
 import { logger } from "../logger/log";
 import {
+  sendInvoiceEmail,
   sendPlanActivatedEmail,
   sendPlanExpiredEmail,
   sendPlanExpiringEmail,
@@ -182,7 +183,13 @@ export class PlanActivationService {
     }
 
     const now = new Date();
-    const expiresAt = computeExpiresAt(now, input.periodDays);
+    const periodStart = await PlanActivationService.nextPeriodStart(
+      req.teamId,
+      req.targetUserId,
+      req.planId,
+      now,
+    );
+    const expiresAt = computeExpiresAt(periodStart, input.periodDays);
 
     const updatedRequest = await db.$transaction(async (tx) => {
       if (req.targetUserId) {
@@ -251,14 +258,14 @@ export class PlanActivationService {
       userId: req.targetUserId,
       requestId: req.id,
       plan: req.plan,
-      periodStart: now,
-      periodEnd: expiresAt ?? addDays(now, DEFAULT_ACTIVATION_PERIOD_DAYS),
+      periodStart,
+      periodEnd: expiresAt ?? addDays(periodStart, DEFAULT_ACTIVATION_PERIOD_DAYS),
       paymentMethod: req.paymentMethod,
       paymentReference: input.paymentReference,
       paidAt: now,
     });
 
-    const invoiceInfo = await PlanActivationService.invoiceAttachment(invoice);
+    const invoiceInfo = await PlanActivationService.invoiceAttachment(invoice, true);
     await PlanActivationService.notifyRecipients(
       req.teamId,
       req.targetUserId,
@@ -266,6 +273,7 @@ export class PlanActivationService {
         sendPlanActivatedEmail(email, {
           planName: req.plan.name,
           expiresAt,
+          periodStart,
           invoice: invoiceInfo,
         }),
       { requestId: req.id, event: "approved" },
@@ -313,7 +321,13 @@ export class PlanActivationService {
     }
 
     const now = new Date();
-    const expiresAt = computeExpiresAt(now, input.periodDays);
+    const periodStart = await PlanActivationService.nextPeriodStart(
+      input.teamId,
+      input.targetUserId ?? null,
+      input.planId,
+      now,
+    );
+    const expiresAt = computeExpiresAt(periodStart, input.periodDays);
 
     const createdRequest = await db.$transaction(async (tx) => {
       if (input.targetUserId) {
@@ -384,14 +398,14 @@ export class PlanActivationService {
       userId: input.targetUserId ?? null,
       requestId: createdRequest.id,
       plan,
-      periodStart: now,
-      periodEnd: expiresAt ?? addDays(now, DEFAULT_ACTIVATION_PERIOD_DAYS),
+      periodStart,
+      periodEnd: expiresAt ?? addDays(periodStart, DEFAULT_ACTIVATION_PERIOD_DAYS),
       paymentMethod: input.paymentMethod,
       paymentReference: input.paymentReference,
       paidAt: now,
     });
 
-    const invoiceInfo = await PlanActivationService.invoiceAttachment(invoice);
+    const invoiceInfo = await PlanActivationService.invoiceAttachment(invoice, true);
     await PlanActivationService.notifyRecipients(
       input.teamId,
       input.targetUserId ?? null,
@@ -399,12 +413,149 @@ export class PlanActivationService {
         sendPlanActivatedEmail(email, {
           planName: plan.name,
           expiresAt,
+          periodStart,
           invoice: invoiceInfo,
         }),
       { requestId: createdRequest.id, event: "manual-assign" },
     );
 
     return createdRequest;
+  }
+
+  // Operator marks a pending cuenta de cobro as paid: the plan of the invoice
+  // is (re)activated for the invoiced period and the client gets the factura.
+  static async registerInvoicePayment(input: {
+    invoiceId: string;
+    adminUserId: number;
+    paymentMethod?: string | null;
+    paymentReference?: string | null;
+  }): Promise<PlanActivationRequest> {
+    const invoice = await InvoiceService.getById(input.invoiceId);
+    if (!invoice) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Factura no encontrada" });
+    }
+    if (invoice.status !== "ISSUED") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Solo se puede registrar el pago de una cuenta de cobro pendiente",
+      });
+    }
+    if (!invoice.userId) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "La cuenta de cobro no está asociada a un cliente",
+      });
+    }
+    const periodDays = Math.max(
+      1,
+      Math.round(
+        (invoice.periodEnd.getTime() - invoice.periodStart.getTime()) / 86_400_000,
+      ),
+    );
+    return PlanActivationService.manualAssign({
+      teamId: invoice.teamId,
+      planId: invoice.planId,
+      adminUserId: input.adminUserId,
+      targetUserId: invoice.userId,
+      periodDays,
+      paymentMethod: input.paymentMethod,
+      paymentReference: input.paymentReference,
+      adminNotes: `Pago de ${invoice.number}`,
+    });
+  }
+
+  // Operator issues a cuenta de cobro ahead of a sale or renewal. The period
+  // starts when the current one ends, so paying early never shortens it.
+  static async issueInvoice(input: {
+    teamId: number;
+    userId: number;
+    planId: number;
+    periodDays?: number | null;
+    adminUserId: number;
+  }): Promise<PlanInvoice> {
+    const plan = await db.pricingPlan.findUnique({ where: { id: input.planId } });
+    if (!plan) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Plan no encontrado" });
+    }
+    const planInfo = {
+      id: plan.id,
+      name: plan.name,
+      priceMonthly: plan.priceMonthly as unknown as number,
+      currency: plan.currency,
+    };
+    if (!InvoiceService.isBillable(planInfo)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Este plan no tiene precio; no genera cuenta de cobro",
+      });
+    }
+    const membership = await db.teamUser.findUnique({
+      where: { teamId_userId: { teamId: input.teamId, userId: input.userId } },
+    });
+    if (!membership) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "El usuario no pertenece al team seleccionado",
+      });
+    }
+    const days =
+      input.periodDays === undefined || input.periodDays === null || input.periodDays <= 0
+        ? DEFAULT_ACTIVATION_PERIOD_DAYS
+        : input.periodDays;
+    const now = new Date();
+    const periodStart = await PlanActivationService.nextPeriodStart(
+      input.teamId,
+      input.userId,
+      input.planId,
+      now,
+    );
+    const invoice = await InvoiceService.createPending({
+      teamId: input.teamId,
+      userId: input.userId,
+      activationRequestId: null,
+      plan: planInfo,
+      periodStart,
+      periodEnd: addDays(periodStart, days),
+      dueAt: periodStart,
+    });
+
+    logger.info(
+      { invoiceId: invoice.id, number: invoice.number, userId: input.userId, adminUserId: input.adminUserId },
+      "[PlanActivation] Cuenta de cobro issued by admin",
+    );
+
+    await PlanActivationService.sendInvoice(invoice);
+    return invoice;
+  }
+
+  static async resendInvoice(invoiceId: string): Promise<void> {
+    const invoice = await InvoiceService.getById(invoiceId);
+    if (!invoice) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Factura no encontrada" });
+    }
+    if (invoice.status === "VOID") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "La factura está anulada" });
+    }
+    await PlanActivationService.sendInvoice(invoice);
+  }
+
+  private static async sendInvoice(invoice: PlanInvoice) {
+    const info = await PlanActivationService.invoiceAttachment(invoice, true);
+    if (!info) return;
+    await PlanActivationService.notifyRecipients(
+      invoice.teamId,
+      invoice.userId,
+      (email) =>
+        sendInvoiceEmail(email, {
+          kind: invoice.status === "PAID" ? "paid" : "pending",
+          number: invoice.number,
+          planName: invoice.planName,
+          amountLabel: info.amountLabel,
+          dueAt: invoice.dueAt,
+          attachment: info.attachment,
+        }),
+      { invoiceId: invoice.id, event: "invoice" },
+    );
   }
 
   static async reject(input: RejectInput): Promise<PlanActivationRequest> {
@@ -688,6 +839,29 @@ export class PlanActivationService {
   }
 
   // Internals ---------------------------------------------------------------
+
+  // A renewal of the same plan starts when the current period ends, so a
+  // client who pays early keeps every day already paid for. Any other case
+  // starts now.
+  private static async nextPeriodStart(
+    teamId: number,
+    targetUserId: number | null,
+    planId: number,
+    now: Date,
+  ): Promise<Date> {
+    const current = await db.planActivationRequest.findFirst({
+      where: {
+        teamId,
+        targetUserId,
+        planId,
+        status: "APPROVED",
+        expiresAt: { gt: now },
+      },
+      orderBy: { expiresAt: "desc" },
+      select: { expiresAt: true },
+    });
+    return current?.expiresAt ?? now;
+  }
 
   // Extra user fields to write when a payment lifts an automatic suspension.
   // Manual blocks (blockedBySystem = false) are left untouched.
