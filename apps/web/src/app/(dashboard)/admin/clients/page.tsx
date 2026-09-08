@@ -361,7 +361,7 @@ export default function AdminClientsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[190px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
