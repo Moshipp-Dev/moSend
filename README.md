@@ -88,12 +88,14 @@ Customers are `CLIENT` users inside the operator's team, each with their own `Pr
 1. The customer requests a plan from `/pricing` (or the operator assigns one from **Admin → Clientes** or **Admin → Activaciones → Nueva activación manual**). Plans are monthly packages: `emailsPerMonth` is enforced for every CLIENT plan, `-1` means unlimited.
 2. The operator confirms the payment out of band and approves the request, choosing a validity period (default 30 days, 0 = no expiry). The customer receives a confirmation email with the expiry date.
 3. A daily job (`plan-expiry-job.ts`, 08:00 UTC) emails a reminder 7 days and 1 day before expiry, then downgrades the customer to the `free` plan and marks the activation `EXPIRED`. Renewing is a new approval; it supersedes the previous period.
-4. Non-payers can be suspended per user from **Admin → Clientes** (`User.isBlocked`): their sends fail with `EMAIL_BLOCKED` and the dashboard shows the reason. The rest of the team is unaffected.
+4. Billing documents: paid plans produce a **cuenta de cobro** (PDF, `PlanInvoice` with status `ISSUED`) attached to the 7-day and 1-day reminders, and a **factura / recibo** (`PAID`) attached to the activation email when the operator records the payment. Numbering is `MS-YYYY-NNNN`; the issuer block comes from `INVOICE_ISSUER_NAME` / `INVOICE_ISSUER_DETAILS` (`|`-separated lines). PDFs are generated without external libraries (`src/server/utils/simple-pdf.ts`). Customers download them from **Mi plan**, the operator from the Clientes table.
+5. When a CLIENT period expires without a registered payment the account is **suspended automatically** (`User.isBlocked`, `blockedBySystem`, reason with the plan and the pending invoice number) and the customer gets the suspension email with the cuenta de cobro. Recording the payment (approve / renew) lifts a system suspension; manual suspensions from **Admin → Clientes** are never lifted by a payment. Team-level (legacy) activations still fall back to `free` on expiry.
+6. Non-payers can also be suspended manually per user from **Admin → Clientes**: their sends fail with `EMAIL_BLOCKED` and the dashboard shows the reason. The rest of the team is unaffected.
 
 CLIENT quotas and blocks are enforced in every deployment mode, including `NEXT_PUBLIC_IS_CLOUD=false`; only team-wide quotas remain cloud-only. `adminProcedure` never admits CLIENT or MEMBER users, even when self-hosted.
 
 - **Files:** `apps/web/src/server/service/plan-activation-service.ts`, `apps/web/src/server/jobs/plan-expiry-job.ts`, `apps/web/src/server/api/routers/admin-clients.ts`, `apps/web/src/app/(dashboard)/admin/clients/page.tsx`, plan lifecycle emails in `apps/web/src/server/mailer.ts`.
-- **Migration:** `20260907120000_activation_expiry_and_user_block` (enum value `EXPIRED`, reminder timestamps, `User.isBlocked`).
+- **Migrations:** `20260907120000_activation_expiry_and_user_block` (enum value `EXPIRED`, reminder timestamps, `User.isBlocked`) and `20260908000000_plan_invoices_and_system_block` (`PlanInvoice`, `User.blockedBySystem`).
 
 ### 5. Deployment notes
 

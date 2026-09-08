@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { PlanActivationService } from "~/server/service/plan-activation-service";
 import { ClientService } from "~/server/service/client-service";
+import { InvoiceService } from "~/server/service/invoice-service";
 
 // Operator view of every CLIENT user: the people the SaaS actually bills.
 // Each row carries the user's individual plan, the activation that granted
@@ -61,7 +63,21 @@ export const adminClientsRouter = createTRPCRouter({
                 createdAt: true,
                 isBlocked: true,
                 blockedReason: true,
+                blockedBySystem: true,
                 pricingPlan: { select: { id: true, key: true, name: true } },
+                planInvoices: {
+                  orderBy: { issuedAt: "desc" },
+                  take: 1,
+                  select: {
+                    id: true,
+                    number: true,
+                    status: true,
+                    amount: true,
+                    currency: true,
+                    dueAt: true,
+                    paidAt: true,
+                  },
+                },
                 _count: { select: { clientDomainAccesses: true } },
                 activationsReceived: {
                   where: { status: "APPROVED" },
@@ -93,7 +109,14 @@ export const adminClientsRouter = createTRPCRouter({
         domainsCount: r.user._count.clientDomainAccesses,
         isBlocked: r.user.isBlocked,
         blockedReason: r.user.blockedReason,
+        blockedBySystem: r.user.blockedBySystem,
         activeActivation: r.user.activationsReceived[0] ?? null,
+        lastInvoice: r.user.planInvoices[0]
+          ? {
+              ...r.user.planInvoices[0],
+              amount: Number(r.user.planInvoices[0].amount),
+            }
+          : null,
       }));
 
       return { total, clients, page: input.page, pageSize: input.pageSize };
@@ -144,6 +167,23 @@ export const adminClientsRouter = createTRPCRouter({
         ...input,
         adminUserId: ctx.session.user.id,
       });
+    }),
+
+  invoices: adminProcedure
+    .input(z.object({ userId: z.number() }))
+    .query(async ({ input }) => {
+      const invoices = await InvoiceService.listForUser(input.userId, 50);
+      return invoices.map((i) => ({ ...i, amount: Number(i.amount) }));
+    }),
+
+  invoicePdf: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      const rendered = await InvoiceService.renderPdfById(input.id);
+      if (!rendered) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      return { filename: rendered.filename, base64: rendered.pdf.toString("base64") };
     }),
 
   setBlocked: adminProcedure

@@ -11,6 +11,7 @@ import { PlanDetails } from "~/components/payments/PlanDetails";
 import { UpgradeButton } from "~/components/payments/UpgradeButton";
 import { UsagePanel } from "~/components/billing/UsagePanel";
 import { MyActivationsPanel } from "~/components/billing/MyActivationsPanel";
+import { MyInvoicesPanel } from "~/components/billing/MyInvoicesPanel";
 import Link from "next/link";
 
 export default function SettingsPage() {
@@ -69,6 +70,7 @@ export default function SettingsPage() {
       <div className="space-y-8">
         <UsagePanel />
         <MyActivationsPanel />
+        <MyInvoicesPanel />
         <div className="px-2 text-sm text-muted-foreground">
           ¿Necesitás más cupo o otro plan?{" "}
           <Link href="/pricing" className="text-primary hover:underline">

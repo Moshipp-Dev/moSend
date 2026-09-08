@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockDb, mockTeamService, mockPlanService, mockMailer } = vi.hoisted(() => {
+const { mockDb, mockTeamService, mockPlanService, mockMailer, mockInvoice } = vi.hoisted(() => {
   const teamUser = {
     findMany: vi.fn(),
     update: vi.fn(),
@@ -50,12 +50,25 @@ const { mockDb, mockTeamService, mockPlanService, mockMailer } = vi.hoisted(() =
       sendPlanRejectedEmail: vi.fn(),
       sendPlanExpiringEmail: vi.fn(),
       sendPlanExpiredEmail: vi.fn(),
+      sendPlanSuspendedEmail: vi.fn(),
+    },
+    mockInvoice: {
+      isBillable: vi.fn(),
+      recordPayment: vi.fn(),
+      createPending: vi.fn(),
+      findOpenForUser: vi.fn(),
+      voidOpenForUser: vi.fn(),
+      renderPdfById: vi.fn(),
     },
   };
 });
 
 vi.mock("~/server/db", () => ({ db: mockDb }));
 vi.mock("~/server/mailer", () => mockMailer);
+vi.mock("~/server/service/invoice-service", () => ({
+  InvoiceService: mockInvoice,
+  formatMoney: (amount: number, currency: string) => `${currency} ${amount.toFixed(2)}`,
+}));
 vi.mock("~/server/service/team-service", () => ({ TeamService: mockTeamService }));
 vi.mock("~/server/service/plan-service", () => ({ PlanService: mockPlanService }));
 
@@ -75,6 +88,9 @@ describe("PlanActivationService", () => {
     mockPlanService.invalidateTeam.mockReset();
     mockPlanService.invalidateUser.mockReset();
     Object.values(mockMailer).forEach((f) => (f as any).mockReset());
+    Object.values(mockInvoice).forEach((f) => (f as any).mockReset());
+    mockInvoice.isBillable.mockReturnValue(false);
+    mockInvoice.findOpenForUser.mockResolvedValue(null);
   });
 
   describe("createRequest", () => {
@@ -437,7 +453,7 @@ describe("PlanActivationService", () => {
   });
 
   describe("expireDue", () => {
-    it("downgrades the user to free only when they still hold the expired plan", async () => {
+    it("suspends the CLIENT with a reason, keeps their plan and emails the pending invoice", async () => {
       const now = new Date("2026-10-07T08:00:00Z");
       mockDb.planActivationRequest.findMany.mockResolvedValue([
         {
@@ -448,43 +464,78 @@ describe("PlanActivationService", () => {
           expiresAt: new Date("2026-10-06T00:00:00Z"),
           plan: { name: "Órbita" },
         },
-        {
-          id: "req_switched",
-          teamId: 10,
-          planId: 5,
-          targetUserId: 78,
-          expiresAt: new Date("2026-10-06T00:00:00Z"),
-          plan: { name: "Órbita" },
-        },
       ]);
       mockDb.pricingPlan.findFirst.mockResolvedValue({ id: 1, key: "free" });
-      mockDb.user.findUnique
-        .mockResolvedValueOnce({ pricingPlanId: 5 }) // 77 still on the plan
-        .mockResolvedValueOnce({ email: "a@acme.com" })
-        .mockResolvedValueOnce({ pricingPlanId: 9 }) // 78 moved to another plan
-        .mockResolvedValueOnce({ email: "b@acme.com" });
+      mockInvoice.findOpenForUser.mockResolvedValue({
+        id: "inv_1",
+        number: "MS-2026-0007",
+        amount: 19,
+        currency: "USD",
+      });
+      mockInvoice.renderPdfById.mockResolvedValue({
+        filename: "cuenta-de-cobro-MS-2026-0007.pdf",
+        pdf: Buffer.from("%PDF"),
+      });
+      mockDb.user.findUnique.mockResolvedValue({ email: "a@acme.com" });
       mockDb.planActivationRequest.update.mockResolvedValue({});
 
       const count = await PlanActivationService.expireDue(now);
 
-      expect(count).toBe(2);
+      expect(count).toBe(1);
       expect(mockDb.user.update).toHaveBeenCalledTimes(1);
-      expect(mockDb.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 77 },
-          data: { pricingPlanId: 1 },
-        }),
-      );
+      const data = mockDb.user.update.mock.calls[0]![0].data;
+      expect(data.isBlocked).toBe(true);
+      expect(data.blockedBySystem).toBe(true);
+      expect(data.blockedReason).toMatch(/Órbita/);
+      expect(data.blockedReason).toMatch(/MS-2026-0007/);
+      expect(data.pricingPlanId).toBeUndefined();
       expect(mockDb.planActivationRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "req_old" },
           data: { status: "EXPIRED", expiredAt: now },
         }),
       );
-      expect(mockDb.planActivationRequest.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: "req_switched" } }),
+      expect(mockMailer.sendPlanSuspendedEmail).toHaveBeenCalledWith(
+        "a@acme.com",
+        expect.objectContaining({
+          planName: "Órbita",
+          invoice: expect.objectContaining({
+            number: "MS-2026-0007",
+            amountLabel: "USD 19.00",
+          }),
+        }),
       );
-      expect(mockMailer.sendPlanExpiredEmail).toHaveBeenCalledTimes(2);
+      expect(mockMailer.sendPlanExpiredEmail).not.toHaveBeenCalled();
+    });
+
+    it("team-level activations still fall back to the free plan", async () => {
+      const now = new Date("2026-10-07T08:00:00Z");
+      mockDb.planActivationRequest.findMany.mockResolvedValue([
+        {
+          id: "req_team",
+          teamId: 10,
+          planId: 5,
+          targetUserId: null,
+          expiresAt: new Date("2026-10-06T00:00:00Z"),
+          plan: { name: "Órbita" },
+        },
+      ]);
+      mockDb.pricingPlan.findFirst.mockResolvedValue({ id: 1, key: "free" });
+      mockDb.team.findUnique.mockResolvedValue({ pricingPlanId: 5, billingEmail: "b@acme.com" });
+      mockDb.planActivationRequest.update.mockResolvedValue({});
+
+      await PlanActivationService.expireDue(now);
+
+      expect(mockDb.team.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: { pricingPlanId: 1, plan: "FREE" },
+        }),
+      );
+      expect(mockDb.user.update).not.toHaveBeenCalled();
+      expect(mockMailer.sendPlanExpiredEmail).toHaveBeenCalledWith("b@acme.com", {
+        planName: "Órbita",
+      });
     });
 
     it("does nothing when no activation is due", async () => {
@@ -502,8 +553,9 @@ describe("PlanActivationService", () => {
         id: "req_1",
         teamId: 10,
         targetUserId: 77,
+        reviewedAt: new Date("2026-09-07T08:00:00Z"),
         expiresAt: new Date("2026-10-07T08:00:00Z"),
-        plan: { name: "Órbita" },
+        plan: { id: 5, name: "Órbita", priceMonthly: 19, currency: "USD" },
       };
       mockDb.planActivationRequest.findMany
         .mockResolvedValueOnce([expiring]) // 7-day window
@@ -511,12 +563,41 @@ describe("PlanActivationService", () => {
       mockDb.user.findUnique.mockResolvedValue({ email: "cliente@acme.com" });
       mockDb.planActivationRequest.update.mockResolvedValue({});
 
+      mockInvoice.isBillable.mockReturnValue(true);
+      mockInvoice.createPending.mockResolvedValue({
+        id: "inv_2",
+        number: "MS-2026-0008",
+        amount: 19,
+        currency: "USD",
+      });
+      mockInvoice.renderPdfById.mockResolvedValue({
+        filename: "cuenta-de-cobro-MS-2026-0008.pdf",
+        pdf: Buffer.from("%PDF"),
+      });
+
       const result = await PlanActivationService.sendReminders(now);
 
       expect(result).toEqual({ reminders: 1, finalReminders: 0 });
+      expect(mockInvoice.createPending).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 77,
+          activationRequestId: "req_1",
+          dueAt: expiring.expiresAt,
+        }),
+      );
       expect(mockMailer.sendPlanExpiringEmail).toHaveBeenCalledWith(
         "cliente@acme.com",
-        expect.objectContaining({ planName: "Órbita", daysLeft: 7 }),
+        expect.objectContaining({
+          planName: "Órbita",
+          daysLeft: 7,
+          invoice: expect.objectContaining({
+            number: "MS-2026-0008",
+            amountLabel: "USD 19.00",
+            attachment: expect.objectContaining({
+              filename: "cuenta-de-cobro-MS-2026-0008.pdf",
+            }),
+          }),
+        }),
       );
       expect(mockDb.planActivationRequest.update).toHaveBeenCalledWith({
         where: { id: "req_1" },
@@ -530,6 +611,77 @@ describe("PlanActivationService", () => {
     });
   });
 
+  describe("payment side effects", () => {
+    it("manualAssign lifts an automatic suspension and attaches the paid invoice", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5,
+        key: "orbita",
+        name: "Órbita",
+        isActive: true,
+        priceMonthly: 19,
+        currency: "USD",
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99, role: "CLIENT" });
+      mockDb.user.findUnique
+        .mockResolvedValueOnce({ isBlocked: true, blockedBySystem: true }) // unblock check
+        .mockResolvedValueOnce({ email: "cliente@acme.com" }); // recipient
+      mockDb.planActivationRequest.create.mockResolvedValue({ id: "req_manual" });
+      mockInvoice.isBillable.mockReturnValue(true);
+      mockInvoice.recordPayment.mockResolvedValue({ id: "inv_9", number: "MS-2026-0009", amount: 19, currency: "USD" });
+      mockInvoice.renderPdfById.mockResolvedValue({ filename: "factura-MS-2026-0009.pdf", pdf: Buffer.from("%PDF") });
+
+      await PlanActivationService.manualAssign({
+        teamId: 10,
+        planId: 5,
+        adminUserId: 7,
+        targetUserId: 99,
+        paymentMethod: "Transferencia",
+        paymentReference: "TX-1",
+      });
+
+      expect(mockDb.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 99 },
+          data: expect.objectContaining({
+            isBlocked: false,
+            blockedReason: null,
+            blockedBySystem: false,
+          }),
+        }),
+      );
+      expect(mockInvoice.recordPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 99,
+          activationRequestId: "req_manual",
+          paymentReference: "TX-1",
+        }),
+      );
+      expect(mockMailer.sendPlanActivatedEmail).toHaveBeenCalledWith(
+        "cliente@acme.com",
+        expect.objectContaining({
+          invoice: expect.objectContaining({ number: "MS-2026-0009" }),
+        }),
+      );
+    });
+
+    it("a manual block is not lifted by a payment", async () => {
+      mockDb.pricingPlan.findUnique.mockResolvedValue({
+        id: 5, key: "orbita", name: "Órbita", isActive: true, priceMonthly: 0, currency: "USD",
+      });
+      mockDb.team.findUnique.mockResolvedValue({ id: 10 });
+      mockDb.teamUser.findUnique.mockResolvedValue({ teamId: 10, userId: 99, role: "CLIENT" });
+      mockDb.user.findUnique.mockResolvedValue({ isBlocked: true, blockedBySystem: false });
+      mockDb.planActivationRequest.create.mockResolvedValue({ id: "req_manual" });
+
+      await PlanActivationService.manualAssign({ teamId: 10, planId: 5, adminUserId: 7, targetUserId: 99 });
+
+      const data = mockDb.user.update.mock.calls[0]![0].data;
+      expect(data.isBlocked).toBeUndefined();
+      expect(mockInvoice.recordPayment).not.toHaveBeenCalled();
+    });
+  });
+
   describe("setUserBlocked", () => {
     it("stores the reason when blocking and clears it when unblocking", async () => {
       mockDb.user.update.mockResolvedValue({ id: 77, isBlocked: true });
@@ -537,7 +689,7 @@ describe("PlanActivationService", () => {
       expect(mockDb.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 77 },
-          data: { isBlocked: true, blockedReason: "pago pendiente" },
+          data: { isBlocked: true, blockedReason: "pago pendiente", blockedBySystem: false },
         }),
       );
       expect(mockPlanService.invalidateUser).toHaveBeenCalledWith(77);
@@ -546,7 +698,7 @@ describe("PlanActivationService", () => {
       await PlanActivationService.setUserBlocked(77, false, "ignored");
       expect(mockDb.user.update).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          data: { isBlocked: false, blockedReason: null },
+          data: { isBlocked: false, blockedReason: null, blockedBySystem: false },
         }),
       );
     });

@@ -35,6 +35,16 @@ type ClientRow = {
   domainsCount: number;
   isBlocked: boolean;
   blockedReason: string | null;
+  blockedBySystem: boolean;
+  lastInvoice: {
+    id: string;
+    number: string;
+    status: "ISSUED" | "PAID" | "VOID";
+    amount: number;
+    currency: string;
+    dueAt: Date | string | null;
+    paidAt: Date | string | null;
+  } | null;
   activeActivation: {
     id: string;
     expiresAt: Date | string | null;
@@ -70,6 +80,27 @@ export default function AdminClientsPage() {
       utils.adminClients.list.invalidate(),
       utils.adminActivations.list.invalidate(),
     ]);
+  };
+
+  const [downloadingInvoice, setDownloadingInvoice] = useState<string | null>(null);
+  const downloadInvoice = async (id: string) => {
+    setDownloadingInvoice(id);
+    try {
+      const file = await utils.adminClients.invoicePdf.fetch({ id });
+      const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el PDF");
+    } finally {
+      setDownloadingInvoice(null);
+    }
   };
 
   // Assign / renew dialog -----------------------------------------------------
@@ -292,6 +323,7 @@ export default function AdminClientsPage() {
                 <th className="py-2">Dominios</th>
                 <th className="py-2">Plan</th>
                 <th className="py-2">Vigencia</th>
+                <th className="py-2">Factura</th>
                 <th className="py-2">Estado</th>
                 <th className="py-2 text-right">Acciones</th>
               </tr>
@@ -319,6 +351,31 @@ export default function AdminClientsPage() {
                   </td>
                   <td className="py-2 text-xs">
                     <ValidityCell client={c} />
+                  </td>
+                  <td className="py-2 text-xs">
+                    {c.lastInvoice ? (
+                      <div>
+                        <button
+                          onClick={() => downloadInvoice(c.lastInvoice!.id)}
+                          disabled={downloadingInvoice === c.lastInvoice.id}
+                          className="font-mono text-primary hover:underline disabled:opacity-50"
+                          title="Descargar PDF"
+                        >
+                          {c.lastInvoice.number}
+                        </button>
+                        <div className="text-muted-foreground">
+                          {c.lastInvoice.status === "PAID"
+                            ? "Pagada"
+                            : c.lastInvoice.status === "ISSUED"
+                              ? "Pendiente"
+                              : "Anulada"}
+                          {" · "}
+                          {c.lastInvoice.currency} {c.lastInvoice.amount.toFixed(2)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="py-2">
                     {c.isBlocked ? (
@@ -375,7 +432,7 @@ export default function AdminClientsPage() {
               ))}
               {data?.clients.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-6 text-center text-muted-foreground">
                     No hay clientes que coincidan. Creá uno con "+ Nuevo
                     cliente".
                   </td>
@@ -594,8 +651,9 @@ export default function AdminClientsPage() {
 
           <p className="text-sm text-muted-foreground">
             {assignTarget?.email ?? ""}. El plan se activa de inmediato, el
-            período anterior se cierra y el cliente recibe un correo con la
-            nueva fecha de vencimiento.
+            período anterior se cierra, se levanta una suspensión por
+            vencimiento y el cliente recibe la factura en PDF con la nueva
+            fecha de vencimiento.
           </p>
 
           <div className="space-y-3">

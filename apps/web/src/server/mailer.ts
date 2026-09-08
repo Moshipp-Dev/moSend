@@ -6,6 +6,7 @@ import { getDomains } from "./service/domain-service";
 import { sendEmail } from "./service/email-service";
 import { logger } from "./logger/log";
 import { renderOtpEmail, renderTeamInviteEmail } from "./email-templates";
+import type { EmailAttachment } from "~/types";
 
 let usesend: UseSend | undefined;
 
@@ -127,11 +128,27 @@ function renderPlanEmailHtml(
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:32px;"><h1 style="margin:0 0 16px 0;font-size:20px;color:#111827;">${title}</h1>${body}${button}<p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;">${PLAN_EMAIL_SIGNATURE}</p></div></body></html>`;
 }
 
+export interface PlanEmailAttachment {
+  filename: string;
+  pdf: Buffer;
+}
+
+function toEmailAttachments(
+  attachments?: PlanEmailAttachment[]
+): EmailAttachment[] | undefined {
+  if (!attachments || attachments.length === 0) return undefined;
+  return attachments.map((a) => ({
+    filename: a.filename,
+    content: a.pdf.toString("base64"),
+  }));
+}
+
 async function sendPlanEmail(
   email: string,
   subject: string,
   paragraphs: string[],
-  cta?: { label: string; url: string }
+  cta?: { label: string; url: string },
+  attachments?: PlanEmailAttachment[]
 ) {
   const text = `${paragraphs.join("\n\n")}${cta ? `\n\n${cta.label}: ${cta.url}` : ""}\n\n${PLAN_EMAIL_SIGNATURE}`;
   const html = renderPlanEmailHtml(
@@ -141,30 +158,52 @@ async function sendPlanEmail(
   );
 
   if (env.NODE_ENV === "development") {
-    logger.info({ email, subject, text }, "Sending plan email");
+    logger.info(
+      { email, subject, text, attachments: attachments?.map((a) => a.filename) },
+      "Sending plan email"
+    );
     return;
   }
 
-  await sendMail(email, subject, text, html);
+  await sendMail(
+    email,
+    subject,
+    text,
+    html,
+    undefined,
+    undefined,
+    toEmailAttachments(attachments)
+  );
 }
 
 export async function sendPlanActivatedEmail(
   email: string,
-  opts: { planName: string; expiresAt: Date | null }
+  opts: {
+    planName: string;
+    expiresAt: Date | null;
+    invoice?: { number: string; attachment: PlanEmailAttachment } | null;
+  }
 ) {
   const validity = opts.expiresAt
     ? `Tu plan tiene vigencia hasta el ${formatSpanishDate(opts.expiresAt)}. Te avisaremos unos días antes para que lo renueves sin interrupciones.`
     : "Tu plan no tiene fecha de vencimiento.";
+  const paragraphs = [
+    "Hola,",
+    `Activamos tu plan ${opts.planName} en moSend. Ya podés enviar correos con los límites de tu nuevo plan.`,
+    validity,
+  ];
+  if (opts.invoice) {
+    paragraphs.push(
+      `Adjuntamos la factura ${opts.invoice.number} con el detalle del pago registrado.`
+    );
+  }
 
   await sendPlanEmail(
     email,
     `Tu plan ${opts.planName} está activo`,
-    [
-      "Hola,",
-      `Activamos tu plan ${opts.planName} en moSend. Ya podés enviar correos con los límites de tu nuevo plan.`,
-      validity,
-    ],
-    { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` }
+    paragraphs,
+    { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` },
+    opts.invoice ? [opts.invoice.attachment] : undefined
   );
 }
 
@@ -187,22 +226,76 @@ export async function sendPlanRejectedEmail(
 
 export async function sendPlanExpiringEmail(
   email: string,
-  opts: { planName: string; expiresAt: Date; daysLeft: number }
+  opts: {
+    planName: string;
+    expiresAt: Date;
+    daysLeft: number;
+    invoice?: {
+      number: string;
+      amountLabel: string;
+      attachment: PlanEmailAttachment;
+    } | null;
+  }
 ) {
   const when =
     opts.daysLeft <= 1
       ? "vence mañana"
       : `vence en ${opts.daysLeft} días, el ${formatSpanishDate(opts.expiresAt)}`;
+  const paragraphs = ["Hola,", `Tu plan ${opts.planName} en moSend ${when}.`];
+  if (opts.invoice) {
+    paragraphs.push(
+      `Adjuntamos la cuenta de cobro ${opts.invoice.number} por ${opts.invoice.amountLabel} para renovar el próximo período. Realizá el pago y respondé este correo con el comprobante.`
+    );
+  } else {
+    paragraphs.push(
+      "Para seguir enviando con los mismos límites, realizá el pago de la renovación y avisanos con el comprobante."
+    );
+  }
+  paragraphs.push(
+    "Si el pago no queda registrado antes del vencimiento, la cuenta se suspende automáticamente hasta que se regularice."
+  );
 
   await sendPlanEmail(
     email,
-    `Tu plan ${opts.planName} ${opts.daysLeft <= 1 ? "vence mañana" : "está por vencer"}`,
-    [
-      "Hola,",
-      `Tu plan ${opts.planName} en moSend ${when}.`,
-      "Para seguir enviando con los mismos límites, realizá el pago de la renovación y avisanos con el comprobante. Si no renovás, tu cuenta pasará automáticamente al plan gratuito al vencer.",
-    ],
-    { label: "Renovar mi plan", url: `${appBaseUrl()}/pricing` }
+    `${opts.daysLeft <= 1 ? "Vence mañana" : "Aviso de pago"}: plan ${opts.planName}`,
+    paragraphs,
+    { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` },
+    opts.invoice ? [opts.invoice.attachment] : undefined
+  );
+}
+
+export async function sendPlanSuspendedEmail(
+  email: string,
+  opts: {
+    planName: string;
+    expiredAt: Date;
+    invoice?: {
+      number: string;
+      amountLabel: string;
+      attachment: PlanEmailAttachment;
+    } | null;
+  }
+) {
+  const paragraphs = [
+    "Hola,",
+    `El período de tu plan ${opts.planName} en moSend venció el ${formatSpanishDate(opts.expiredAt)} y no encontramos el pago registrado, así que tu cuenta quedó suspendida: los envíos están bloqueados hasta regularizar el pago.`,
+  ];
+  if (opts.invoice) {
+    paragraphs.push(
+      `Adjuntamos la cuenta de cobro ${opts.invoice.number} por ${opts.invoice.amountLabel}. Apenas confirmemos el pago reactivamos tu plan de inmediato.`
+    );
+  } else {
+    paragraphs.push(
+      "Realizá el pago de la renovación y respondé este correo con el comprobante; apenas lo confirmemos reactivamos tu plan."
+    );
+  }
+
+  await sendPlanEmail(
+    email,
+    `Cuenta suspendida: plan ${opts.planName} vencido`,
+    paragraphs,
+    { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` },
+    opts.invoice ? [opts.invoice.attachment] : undefined
   );
 }
 
@@ -251,7 +344,8 @@ export async function sendMail(
   text: string,
   html: string,
   replyTo?: string,
-  fromOverride?: string
+  fromOverride?: string,
+  attachments?: EmailAttachment[]
 ) {
   if (isSelfHosted()) {
     logger.info("Sending email using self hosted");
@@ -294,6 +388,7 @@ export async function sendMail(
       text,
       html,
       replyTo,
+      attachments,
     });
   } else if (env.UNSEND_API_KEY && (env.FROM_EMAIL || fromOverride)) {
     const fromAddress = fromOverride ?? env.FROM_EMAIL!;
@@ -304,6 +399,7 @@ export async function sendMail(
       text,
       html,
       replyTo,
+      ...(attachments ? { attachments } : {}),
     });
 
     if (resp.data) {

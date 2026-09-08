@@ -91,6 +91,7 @@ model User {
   portalUserId         String?               @unique
   isBlocked            Boolean               @default(false)
   blockedReason        String?
+  blockedBySystem      Boolean               @default(false)
   createdAt            DateTime              @default(now())
   accounts             Account[]
   sessions             Session[]
@@ -99,6 +100,7 @@ model User {
   clientDomainAccesses ClientDomainAccess[]
   pricingPlan          PricingPlan?          @relation("UserPricingPlan", fields: [pricingPlanId], references: [id], onDelete: SetNull)
   activationsReceived  PlanActivationRequest[] @relation("ActivationTargetUser")
+  planInvoices         PlanInvoice[]
 }
 
 enum Plan {
@@ -224,6 +226,44 @@ model Team {
   webhookEndpoints     Webhook[]
   webhookCalls         WebhookCall[]
   clientDomainAccesses ClientDomainAccess[]
+  planInvoices         PlanInvoice[]
+}
+
+enum PlanInvoiceStatus {
+  ISSUED
+  PAID
+  VOID
+}
+
+// Cuenta de cobro / factura for a CLIENT plan period. ISSUED = pending
+// payment (sent before expiry), PAID = payment recorded by the operator.
+model PlanInvoice {
+  id                  String            @id @default(cuid())
+  number              String            @unique
+  teamId              Int
+  userId              Int?
+  activationRequestId String?
+  planId              Int
+  planName            String
+  description         String
+  amount              Decimal           @db.Decimal(12, 2)
+  currency            String
+  status              PlanInvoiceStatus @default(ISSUED)
+  periodStart         DateTime
+  periodEnd           DateTime
+  issuedAt            DateTime          @default(now())
+  dueAt               DateTime?
+  paidAt              DateTime?
+  paymentMethod       String?
+  paymentReference    String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([teamId, issuedAt(sort: Desc)])
 }
 
 model TeamInvite {

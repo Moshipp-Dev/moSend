@@ -78,6 +78,9 @@ export const env = createEnv({
     ADMIN_CREDS_ENCRYPTION_KEY: z.string().min(32).optional(),
     AUTH_COOKIE_DOMAIN: z.string().optional(),
     PORTAL_ADMIN_API_KEY: z.string().min(32).optional(),
+    // Issuer block printed on plan invoices (cuentas de cobro / facturas).
+    INVOICE_ISSUER_NAME: z.string().optional(),
+    INVOICE_ISSUER_DETAILS: z.string().optional(),
   },
 
   /**
@@ -143,6 +146,8 @@ export const env = createEnv({
     ADMIN_CREDS_ENCRYPTION_KEY: process.env.ADMIN_CREDS_ENCRYPTION_KEY,
     AUTH_COOKIE_DOMAIN: process.env.AUTH_COOKIE_DOMAIN,
     PORTAL_ADMIN_API_KEY: process.env.PORTAL_ADMIN_API_KEY,
+    INVOICE_ISSUER_NAME: process.env.INVOICE_ISSUER_NAME,
+    INVOICE_ISSUER_DETAILS: process.env.INVOICE_ISSUER_DETAILS,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
