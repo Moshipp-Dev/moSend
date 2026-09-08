@@ -68,5 +68,9 @@ export async function initPlanExpiryJob() {
     logger.error({ err, jobId: job?.id }, "[PlanExpiryJob]: Job failed");
   });
 
+  logger.info(
+    { schedule: "0 8 * * * UTC" },
+    "[PlanExpiryJob]: Scheduled daily reminders and expiry",
+  );
   initialized = true;
 }
