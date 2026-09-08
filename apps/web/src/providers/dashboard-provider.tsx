@@ -15,22 +15,27 @@ export const DashboardProvider = ({
 }) => {
   const { data: session } = useSession();
   const { data: teams, status } = api.team.getTeams.useQuery();
+
+  // Only operators may read SES settings (adminProcedure): platform admins,
+  // or team ADMINs on a self-hosted install. CLIENT and MEMBER users must not
+  // even ask, otherwise the unauthorized query keeps the dashboard on the
+  // loading screen while it retries.
+  const currentRole = teams?.[0]?.teamUsers[0]?.role;
+  const isOperator =
+    Boolean(session?.user.isAdmin) ||
+    (!env.NEXT_PUBLIC_IS_CLOUD && currentRole === "ADMIN");
+
   const { data: settings, status: settingsStatus } =
     api.admin.getSesSettings.useQuery(undefined, {
-      enabled: !env.NEXT_PUBLIC_IS_CLOUD || session?.user.isAdmin,
+      enabled: status === "success" && isOperator,
+      retry: false,
     });
 
-  if (
-    status === "pending" ||
-    (settingsStatus === "pending" && !env.NEXT_PUBLIC_IS_CLOUD)
-  ) {
+  if (status === "pending" || (isOperator && settingsStatus === "pending")) {
     return <FullScreenLoading />;
   }
 
-  if (
-    settings?.length === 0 &&
-    (!env.NEXT_PUBLIC_IS_CLOUD || session?.user.isAdmin)
-  ) {
+  if (isOperator && settings?.length === 0) {
     return <AddSesSettings />;
   }
 
