@@ -25,6 +25,7 @@ export const billingRouter = createTRPCRouter({
       const result = await createCheckoutSessionForTeam(
         ctx.team.id,
         input.planId,
+        ctx.session.user.id,
       );
       return result.url;
     }),
@@ -54,6 +55,22 @@ export const billingRouter = createTRPCRouter({
       ctx.team.id,
       ctx.teamUser.role,
     );
+  }),
+
+  // Suspension state of the caller (CLIENT block) or their team, so the
+  // dashboard can explain why sends fail instead of silently dropping them.
+  getAccountStatus: teamProcedure.query(async ({ ctx }) => {
+    const user = await db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { isBlocked: true, blockedReason: true },
+    });
+    const userBlocked =
+      ctx.teamUser.role === "CLIENT" && Boolean(user?.isBlocked);
+    const teamBlocked = Boolean(ctx.team.isBlocked);
+    return {
+      isBlocked: userBlocked || teamBlocked,
+      reason: userBlocked ? (user?.blockedReason ?? null) : null,
+    };
   }),
 
   getSubscriptionDetails: teamProcedure.query(async ({ ctx }) => {

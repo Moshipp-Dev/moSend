@@ -20,9 +20,9 @@ export default function ApiKeysPage({
         {isCloud() ? (
           <SettingsNavButton href="/settings">Usage</SettingsNavButton>
         ) : null}
-        {currentIsAdmin && isCloud() ? (
+        {(currentIsAdmin && isCloud()) || currentIsClient ? (
           <SettingsNavButton href="/settings/billing">
-            Billing
+            {currentIsClient ? "Mi plan" : "Billing"}
           </SettingsNavButton>
         ) : null}
         {!currentIsClient && (

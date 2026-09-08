@@ -30,6 +30,8 @@ export const adminActivationsRouter = createTRPCRouter({
         requestId: z.string(),
         paymentReference: z.string().max(200).nullable().optional(),
         adminNotes: z.string().max(1000).nullable().optional(),
+        // Days of validity; 0 = no expiry. Omitted = default period.
+        periodDays: z.number().int().min(0).max(3650).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -38,6 +40,7 @@ export const adminActivationsRouter = createTRPCRouter({
         reviewedByUserId: ctx.session.user.id,
         paymentReference: input.paymentReference,
         adminNotes: input.adminNotes,
+        periodDays: input.periodDays,
       });
     }),
 
@@ -67,6 +70,7 @@ export const adminActivationsRouter = createTRPCRouter({
         paymentMethod: z.string().max(80).nullable().optional(),
         paymentReference: z.string().max(200).nullable().optional(),
         adminNotes: z.string().max(1000).nullable().optional(),
+        periodDays: z.number().int().min(0).max(3650).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -78,6 +82,7 @@ export const adminActivationsRouter = createTRPCRouter({
         paymentMethod: input.paymentMethod,
         paymentReference: input.paymentReference,
         adminNotes: input.adminNotes,
+        periodDays: input.periodDays,
       });
     }),
 });

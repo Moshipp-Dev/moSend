@@ -286,10 +286,23 @@ export const templateProcedure = teamProcedure
   });
 
 /**
- * To manage application settings, for hosted version, authenticated users will be considered as admin
+ * Platform operator guard. Cloud mode requires the User.isAdmin flag. In
+ * self-hosted mode the operator is whoever holds the ADMIN role in a team;
+ * CLIENT and MEMBER users are never operators, because this fork bills
+ * CLIENTs individually and they must not reach plan/activation routers.
  */
 export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  if (env.NEXT_PUBLIC_IS_CLOUD && !ctx.session.user.isAdmin) {
+  if (ctx.session.user.isAdmin) {
+    return next();
+  }
+  if (env.NEXT_PUBLIC_IS_CLOUD) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  const operatorMembership = await db.teamUser.findFirst({
+    where: { userId: ctx.session.user.id, role: "ADMIN" },
+    select: { teamId: true },
+  });
+  if (!operatorMembership) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
   return next();

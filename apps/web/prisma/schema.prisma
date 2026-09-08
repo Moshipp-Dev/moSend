@@ -89,6 +89,8 @@ model User {
   isAdmin              Boolean               @default(false)
   pricingPlanId        Int?
   portalUserId         String?               @unique
+  isBlocked            Boolean               @default(false)
+  blockedReason        String?
   createdAt            DateTime              @default(now())
   accounts             Account[]
   sessions             Session[]
@@ -136,6 +138,7 @@ enum PlanActivationStatus {
   APPROVED
   REJECTED
   CANCELLED
+  EXPIRED
 }
 
 model PlanActivationRequest {
@@ -153,6 +156,9 @@ model PlanActivationRequest {
   reviewedByUserId    Int?
   reviewedAt          DateTime?
   expiresAt           DateTime?
+  reminderSentAt      DateTime?
+  finalReminderSentAt DateTime?
+  expiredAt           DateTime?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
@@ -162,6 +168,7 @@ model PlanActivationRequest {
 
   @@index([teamId, status])
   @@index([status, createdAt(sort: Desc)])
+  @@index([status, expiresAt])
   @@index([targetUserId])
 }
 

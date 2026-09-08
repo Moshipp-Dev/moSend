@@ -60,7 +60,16 @@ export function MyActivationsPanel() {
               <td className="py-2 text-xs">
                 {format(new Date(r.createdAt), "yyyy-MM-dd HH:mm")}
               </td>
-              <td className="py-2">{r.plan.name}</td>
+              <td className="py-2">
+                {r.plan.name}
+                {r.status === "APPROVED" && (
+                  <div className="text-xs text-muted-foreground">
+                    {r.expiresAt
+                      ? `Vence ${format(new Date(r.expiresAt), "yyyy-MM-dd")}`
+                      : "Sin vencimiento"}
+                  </div>
+                )}
+              </td>
               <td className="py-2">
                 <span className="text-xs">{translateStatus(r.status)}</span>
                 {r.status === "REJECTED" && r.rejectionReason && (
@@ -94,10 +103,13 @@ export function MyActivationsPanel() {
   );
 }
 
-function translateStatus(status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED") {
+function translateStatus(
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED",
+) {
   return {
     PENDING: "Pendiente",
-    APPROVED: "Aprobada",
+    APPROVED: "Activa",
+    EXPIRED: "Vencida",
     REJECTED: "Rechazada",
     CANCELLED: "Cancelada",
   }[status];

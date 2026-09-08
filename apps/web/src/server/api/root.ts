@@ -9,6 +9,7 @@ import { adminTeamsRouter } from "./routers/admin-teams";
 import { adminGatewaysRouter } from "./routers/admin-gateways";
 import { adminMetricsRouter } from "./routers/admin-metrics";
 import { adminActivationsRouter } from "./routers/admin-activations";
+import { adminClientsRouter } from "./routers/admin-clients";
 import { planRouter } from "./routers/plan";
 import { planActivationRouter } from "./routers/plan-activation";
 import { contactsRouter } from "./routers/contacts";
@@ -39,6 +40,7 @@ export const appRouter = createTRPCRouter({
   adminGateways: adminGatewaysRouter,
   adminMetrics: adminMetricsRouter,
   adminActivations: adminActivationsRouter,
+  adminClients: adminClientsRouter,
   plan: planRouter,
   planActivation: planActivationRouter,
   contacts: contactsRouter,

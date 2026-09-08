@@ -3,6 +3,9 @@ import type { GatewayProvider } from "@prisma/client";
 export interface CheckoutParams {
   teamId: number;
   planId: number;
+  // Who initiated the checkout. Required by the manual gateway, which records
+  // an activation request on behalf of this user.
+  requestedByUserId?: number;
   successUrl: string;
   cancelUrl: string;
 }

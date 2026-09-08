@@ -13,3 +13,4 @@ export const DEFAULT_QUEUE_OPTIONS = {
     age: 30 * 24 * 3600, // 30 days
   },
 };
+export const PLAN_EXPIRY_QUEUE = "plan-expiry";

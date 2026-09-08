@@ -7,10 +7,13 @@ const { mockDb, mockPlan, mockTeamService, mockUsage } = vi.hoisted(() => ({
     contactBook: { count: vi.fn() },
     teamUser: { count: vi.fn() },
     webhook: { count: vi.fn() },
+    user: { findUnique: vi.fn() },
+    clientDomainAccess: { findFirst: vi.fn(), count: vi.fn() },
   },
   mockPlan: {
     getPlanForTeam: vi.fn(),
     getLimitsForTeam: vi.fn(),
+    getPlanForUser: vi.fn(),
   },
   mockTeamService: {
     getTeamCached: vi.fn(),
@@ -36,6 +39,7 @@ vi.mock("~/server/service/team-service", () => ({
 
 vi.mock("~/server/service/usage-service", () => ({
   getThisMonthUsage: mockUsage,
+  getThisMonthUsageForClient: mockUsage,
 }));
 
 vi.mock("~/server/redis", () => ({
@@ -51,6 +55,7 @@ describe("LimitService", () => {
     );
     mockPlan.getPlanForTeam.mockReset();
     mockPlan.getLimitsForTeam.mockReset();
+    mockPlan.getPlanForUser.mockReset();
     mockTeamService.getTeamCached.mockReset();
     mockTeamService.maybeNotifyEmailLimitReached.mockReset();
     mockTeamService.sendWarningEmail.mockReset();
@@ -73,6 +78,38 @@ describe("LimitService", () => {
 
       const r = await LimitService.checkDomainLimit(1);
       expect(r.isLimitReached).toBe(false);
+    });
+  });
+
+  describe("checkEmailLimit for CLIENT domains", () => {
+    it("blocks a suspended CLIENT before looking at quotas", async () => {
+      mockDb.clientDomainAccess.findFirst.mockResolvedValue({ userId: 77 });
+      mockDb.user.findUnique.mockResolvedValue({ isBlocked: true });
+      mockTeamService.getTeamCached.mockResolvedValue({ isBlocked: false });
+
+      const r = await LimitService.checkEmailLimit(1, 42);
+
+      expect(r.isLimitReached).toBe(true);
+      expect(r.reason).toBe(LimitReason.EMAIL_BLOCKED);
+      expect(mockPlan.getPlanForUser).not.toHaveBeenCalled();
+    });
+
+    it("applies the CLIENT's own plan limits when not blocked", async () => {
+      mockDb.clientDomainAccess.findFirst.mockResolvedValue({ userId: 77 });
+      mockDb.user.findUnique.mockResolvedValue({ isBlocked: false });
+      mockTeamService.getTeamCached.mockResolvedValue({ isBlocked: false });
+      mockPlan.getPlanForUser.mockResolvedValue({
+        key: "orbita",
+        emailsPerDay: 10,
+        emailsPerMonth: -1,
+      });
+      mockUsage.mockResolvedValue({ day: [{ sent: 10 }], month: [] });
+
+      const r = await LimitService.checkEmailLimit(1, 42);
+
+      expect(r.isLimitReached).toBe(true);
+      expect(r.reason).toBe(LimitReason.EMAIL_DAILY_LIMIT_REACHED);
+      expect(mockPlan.getPlanForTeam).not.toHaveBeenCalled();
     });
   });
 

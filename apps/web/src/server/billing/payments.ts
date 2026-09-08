@@ -6,6 +6,7 @@ import { TRPCError } from "@trpc/server";
 export async function createCheckoutSessionForTeam(
   teamId: number,
   planId: number,
+  requestedByUserId: number,
 ) {
   const team = await db.team.findUnique({ where: { id: teamId } });
   if (!team) throw new Error("Team not found");
@@ -36,6 +37,7 @@ export async function createCheckoutSessionForTeam(
   return gateway.createCheckoutSession({
     teamId,
     planId,
+    requestedByUserId,
     successUrl,
     cancelUrl,
   });

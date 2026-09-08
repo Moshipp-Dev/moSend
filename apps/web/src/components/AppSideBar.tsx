@@ -117,6 +117,14 @@ const settingsItems = [
     url: "/settings",
     icon: Cog,
   },
+  // CLIENTs have no team settings; their plan, usage and activation
+  // requests live under /settings/billing.
+  {
+    title: "Mi plan",
+    url: "/settings/billing",
+    icon: Cog,
+    clientOnly: true,
+  },
   // Admin item shows if user is admin OR if it's self-hosted
   {
     title: "Administración",
@@ -129,7 +137,7 @@ const settingsItems = [
 
 export function AppSidebar() {
   const { data: session } = useSession();
-  const { currentIsClient } = useTeam();
+  const { currentIsClient, currentIsAdmin } = useTeam();
   const showFeedback = isCloud();
 
   const pathname = usePathname();
@@ -216,10 +224,18 @@ export function AppSidebar() {
                 if (currentIsClient && (item.url === "/webhooks" || item.url === "/admin" || item.url === "/settings")) {
                   return null;
                 }
+                if ("clientOnly" in item && item.clientOnly && !currentIsClient) {
+                  return null;
+                }
 
-                // Special case for Admin item: show if user is admin OR if it's self-hosted
+                // Special case for Admin item: platform admins always; in
+                // self-hosted mode only team ADMINs act as operators (matches
+                // adminProcedure on the server).
                 if (item.isAdmin && item.isSelfHosted) {
-                  if (!session?.user.isAdmin && !isSelfHosted()) {
+                  if (
+                    !session?.user.isAdmin &&
+                    !(isSelfHosted() && currentIsAdmin)
+                  ) {
                     return null;
                   }
                 } else {

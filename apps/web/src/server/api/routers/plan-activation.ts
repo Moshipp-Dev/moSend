@@ -1,18 +1,14 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import {
-  createTRPCRouter,
-  teamAdminProcedure,
-  teamMemberProcedure,
-  teamProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, teamProcedure } from "~/server/api/trpc";
 import { PlanActivationService } from "~/server/service/plan-activation-service";
 
 export const planActivationRouter = createTRPCRouter({
   // Any logged-in team member can request a plan for themselves. The admin
   // SaaS approves it later. CLIENTs included: the activation targets them
-  // individually (user.pricingPlanId) rather than the team.
-  request: teamMemberProcedure
+  // individually (user.pricingPlanId) rather than the team. teamProcedure is
+  // deliberate: teamMemberProcedure would reject the CLIENT role.
+  request: teamProcedure
     .input(
       z.object({
         planId: z.number(),
@@ -31,7 +27,7 @@ export const planActivationRouter = createTRPCRouter({
       });
     }),
 
-  cancel: teamMemberProcedure
+  cancel: teamProcedure
     .input(z.object({ requestId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await PlanActivationService.cancelOwn(
@@ -41,7 +37,7 @@ export const planActivationRouter = createTRPCRouter({
       );
     }),
 
-  listMine: teamMemberProcedure.query(async ({ ctx }) => {
+  listMine: teamProcedure.query(async ({ ctx }) => {
     // Show the caller's own activations. CLIENTs see their individual history;
     // ADMIN/MEMBER see every activation linked to their team.
     if (ctx.teamUser.role === "CLIENT") {

@@ -30,20 +30,21 @@ export class LimitService {
     limit: number;
     reason?: LimitReason;
   }> {
-    if (!env.NEXT_PUBLIC_IS_CLOUD) {
-      return { isLimitReached: false, limit: -1 };
-    }
-
     let limit: number;
     let currentCount: number;
 
     if (caller?.role === "CLIENT") {
+      // CLIENT quotas are the commercial boundary of this fork and apply
+      // regardless of NEXT_PUBLIC_IS_CLOUD.
       const plan = await PlanService.getPlanForUser(caller.userId);
       limit = plan?.maxDomains ?? 1;
       currentCount = await db.clientDomainAccess.count({
         where: { userId: caller.userId, teamId },
       });
     } else {
+      if (!env.NEXT_PUBLIC_IS_CLOUD) {
+        return { isLimitReached: false, limit: -1 };
+      }
       const limits = await PlanService.getLimitsForTeam(teamId);
       limit = limits.maxDomains;
       currentCount = await db.domain.count({ where: { teamId } });
@@ -149,6 +150,21 @@ export class LimitService {
     reason?: LimitReason;
     available?: number;
   }> {
+    // Resolve per-CLIENT limits when the email is sent from a domain that
+    // belongs to a specific CLIENT user. This runs in every deployment mode:
+    // CLIENT plans and blocks are how this fork bills its customers.
+    if (domainId) {
+      const access = await db.clientDomainAccess.findFirst({
+        where: { domainId, teamId },
+        select: { userId: true },
+      });
+      if (access) {
+        return LimitService.checkEmailLimitForClient(teamId, access.userId);
+      }
+    }
+
+    // Team-wide quotas only exist in cloud mode; a self-hosted operator team
+    // is unlimited.
     if (!env.NEXT_PUBLIC_IS_CLOUD) {
       return { isLimitReached: false, limit: -1 };
     }
@@ -161,18 +177,6 @@ export class LimitService {
         limit: 0,
         reason: LimitReason.EMAIL_BLOCKED,
       };
-    }
-
-    // Resolve per-CLIENT limits when the email is sent from a domain that
-    // belongs to a specific CLIENT user.
-    if (domainId) {
-      const access = await db.clientDomainAccess.findFirst({
-        where: { domainId, teamId },
-        select: { userId: true },
-      });
-      if (access) {
-        return LimitService.checkEmailLimitForClient(teamId, access.userId);
-      }
     }
 
     const plan = await PlanService.getPlanForTeam(teamId);
@@ -302,6 +306,23 @@ export class LimitService {
     reason?: LimitReason;
     available?: number;
   }> {
+    const [user, team] = await Promise.all([
+      db.user.findUnique({
+        where: { id: userId },
+        select: { isBlocked: true },
+      }),
+      TeamService.getTeamCached(teamId),
+    ]);
+
+    // A suspended CLIENT (non-payment) or a blocked team cannot send at all.
+    if (user?.isBlocked || team.isBlocked) {
+      return {
+        isLimitReached: true,
+        limit: 0,
+        reason: LimitReason.EMAIL_BLOCKED,
+      };
+    }
+
     const plan = await PlanService.getPlanForUser(userId);
     const isFreeTier = plan?.key === "free" || !plan;
 

@@ -82,6 +82,146 @@ export async function sendSubscriptionConfirmationEmail(email: string) {
   await sendMail(email, subject, text, html, undefined, env.FOUNDER_EMAIL);
 }
 
+// ---------------------------------------------------------------------------
+// Plan activation lifecycle emails (manual billing). Spanish, like the rest of
+// the commercial surface of the dashboard.
+// ---------------------------------------------------------------------------
+
+const PLAN_EMAIL_SIGNATURE = "Equipo moSend";
+
+function appBaseUrl() {
+  return (env.NEXTAUTH_URL ?? "").replace(/\/+$/, "");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatSpanishDate(date: Date) {
+  return date.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Bogota",
+  });
+}
+
+function renderPlanEmailHtml(
+  title: string,
+  paragraphs: string[],
+  cta?: { label: string; url: string }
+) {
+  const body = paragraphs
+    .map(
+      (p) =>
+        `<p style="margin:0 0 12px 0;font-size:15px;line-height:1.5;color:#1f2937;">${p}</p>`
+    )
+    .join("");
+  const button = cta
+    ? `<p style="margin:24px 0 0 0;"><a href="${cta.url}" style="display:inline-block;padding:10px 18px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;">${cta.label}</a></p>`
+    : "";
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:32px;"><h1 style="margin:0 0 16px 0;font-size:20px;color:#111827;">${title}</h1>${body}${button}<p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;">${PLAN_EMAIL_SIGNATURE}</p></div></body></html>`;
+}
+
+async function sendPlanEmail(
+  email: string,
+  subject: string,
+  paragraphs: string[],
+  cta?: { label: string; url: string }
+) {
+  const text = `${paragraphs.join("\n\n")}${cta ? `\n\n${cta.label}: ${cta.url}` : ""}\n\n${PLAN_EMAIL_SIGNATURE}`;
+  const html = renderPlanEmailHtml(
+    subject,
+    paragraphs.map((p) => escapeHtml(p)),
+    cta
+  );
+
+  if (env.NODE_ENV === "development") {
+    logger.info({ email, subject, text }, "Sending plan email");
+    return;
+  }
+
+  await sendMail(email, subject, text, html);
+}
+
+export async function sendPlanActivatedEmail(
+  email: string,
+  opts: { planName: string; expiresAt: Date | null }
+) {
+  const validity = opts.expiresAt
+    ? `Tu plan tiene vigencia hasta el ${formatSpanishDate(opts.expiresAt)}. Te avisaremos unos días antes para que lo renueves sin interrupciones.`
+    : "Tu plan no tiene fecha de vencimiento.";
+
+  await sendPlanEmail(
+    email,
+    `Tu plan ${opts.planName} está activo`,
+    [
+      "Hola,",
+      `Activamos tu plan ${opts.planName} en moSend. Ya podés enviar correos con los límites de tu nuevo plan.`,
+      validity,
+    ],
+    { label: "Ver mi plan", url: `${appBaseUrl()}/settings/billing` }
+  );
+}
+
+export async function sendPlanRejectedEmail(
+  email: string,
+  opts: { planName: string; reason: string }
+) {
+  await sendPlanEmail(
+    email,
+    `No pudimos activar tu plan ${opts.planName}`,
+    [
+      "Hola,",
+      `Revisamos tu solicitud del plan ${opts.planName} y no pudimos aprobarla por este motivo:`,
+      opts.reason,
+      "Si creés que se trata de un error o querés reintentar con otro medio de pago, respondé a este correo o volvé a solicitar el plan.",
+    ],
+    { label: "Ver planes", url: `${appBaseUrl()}/pricing` }
+  );
+}
+
+export async function sendPlanExpiringEmail(
+  email: string,
+  opts: { planName: string; expiresAt: Date; daysLeft: number }
+) {
+  const when =
+    opts.daysLeft <= 1
+      ? "vence mañana"
+      : `vence en ${opts.daysLeft} días, el ${formatSpanishDate(opts.expiresAt)}`;
+
+  await sendPlanEmail(
+    email,
+    `Tu plan ${opts.planName} ${opts.daysLeft <= 1 ? "vence mañana" : "está por vencer"}`,
+    [
+      "Hola,",
+      `Tu plan ${opts.planName} en moSend ${when}.`,
+      "Para seguir enviando con los mismos límites, realizá el pago de la renovación y avisanos con el comprobante. Si no renovás, tu cuenta pasará automáticamente al plan gratuito al vencer.",
+    ],
+    { label: "Renovar mi plan", url: `${appBaseUrl()}/pricing` }
+  );
+}
+
+export async function sendPlanExpiredEmail(
+  email: string,
+  opts: { planName: string }
+) {
+  await sendPlanEmail(
+    email,
+    `Tu plan ${opts.planName} venció`,
+    [
+      "Hola,",
+      `El período de tu plan ${opts.planName} en moSend terminó y tu cuenta pasó al plan gratuito, con sus límites de envío.`,
+      "Podés reactivar tu plan en cualquier momento realizando el pago y solicitando la activación.",
+    ],
+    { label: "Reactivar mi plan", url: `${appBaseUrl()}/pricing` }
+  );
+}
+
 export async function sendMail(
   email: string,
   subject: string,

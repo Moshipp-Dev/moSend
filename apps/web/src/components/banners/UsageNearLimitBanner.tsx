@@ -8,6 +8,25 @@ export function UsageNearLimitBanner() {
   // plan + filtered usage via the billing router.
   const { data: plan } = api.billing.getCurrentPlan.useQuery();
   const { data: usage } = api.billing.getThisMonthUsage.useQuery();
+  const { data: account } = api.billing.getAccountStatus.useQuery();
+
+  if (account?.isBlocked) {
+    return (
+      <div className="flex items-center justify-between gap-3 bg-destructive px-4 py-2 text-sm text-destructive-foreground">
+        <span>
+          Tu cuenta está suspendida y los envíos están bloqueados
+          {account.reason ? `: ${account.reason}` : ""}. Regularizá tu pago y
+          escribinos para reactivarla.
+        </span>
+        <Link
+          href="/settings/billing"
+          className="rounded bg-background/80 px-3 py-1 text-xs font-medium text-foreground hover:bg-background"
+        >
+          Ver mi plan
+        </Link>
+      </div>
+    );
+  }
 
   if (!plan || !usage) return null;
 

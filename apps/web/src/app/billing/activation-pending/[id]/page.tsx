@@ -55,6 +55,11 @@ export default function ActivationPendingPage() {
       body: "Esta solicitud fue cancelada. Si cambiaste de opinión, puedes solicitar el plan nuevamente.",
       tone: "default" as const,
     },
+    EXPIRED: {
+      title: "Plan vencido",
+      body: `El período de tu plan ${data.planName} terminó y tu cuenta pasó al plan gratuito. Puedes renovarlo solicitándolo nuevamente.`,
+      tone: "default" as const,
+    },
   }[data.status];
 
   const toneClass = {
@@ -82,7 +87,9 @@ export default function ActivationPendingPage() {
         >
           Ver mi facturación
         </Link>
-        {(data.status === "REJECTED" || data.status === "CANCELLED") && (
+        {(data.status === "REJECTED" ||
+          data.status === "CANCELLED" ||
+          data.status === "EXPIRED") && (
           <Link
             href="/pricing"
             className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"

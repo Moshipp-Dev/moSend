@@ -91,10 +91,11 @@ export const adminPlansRouter = createTRPCRouter({
   delete: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      const assignedCount = await db.team.count({
-        where: { pricingPlanId: input.id },
-      });
-      if (assignedCount > 0) {
+      const [teamCount, userCount] = await Promise.all([
+        db.team.count({ where: { pricingPlanId: input.id } }),
+        db.user.count({ where: { pricingPlanId: input.id } }),
+      ]);
+      if (teamCount + userCount > 0) {
         // Soft delete: mark inactive so existing teams keep their reference,
         // but the plan stops appearing in /pricing and admin defaults.
         await db.pricingPlan.update({

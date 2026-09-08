@@ -80,7 +80,21 @@ The email detail sheet (opened when you click an email in the dashboard list) no
 - **File (query):** `apps/web/src/server/api/routers/email.ts` — `attachments: true` added to the `getEmail` select.
 - **File (UI):** `apps/web/src/app/(dashboard)/emails/email-details.tsx` — renders the filename list using `Paperclip` from `lucide-react`.
 
-### 4. Deployment notes
+### 4. Manual billing cycle for CLIENT users
+
+Customers are `CLIENT` users inside the operator's team, each with their own `PricingPlan` and domains. Selling a plan is a manual activation, not a card checkout:
+
+1. The customer requests a plan from `/pricing` (or the operator assigns one from **Admin → Clientes** or **Admin → Activaciones → Nueva activación manual**).
+2. The operator confirms the payment out of band and approves the request, choosing a validity period (default 30 days, 0 = no expiry). The customer receives a confirmation email with the expiry date.
+3. A daily job (`plan-expiry-job.ts`, 08:00 UTC) emails a reminder 7 days and 1 day before expiry, then downgrades the customer to the `free` plan and marks the activation `EXPIRED`. Renewing is a new approval; it supersedes the previous period.
+4. Non-payers can be suspended per user from **Admin → Clientes** (`User.isBlocked`): their sends fail with `EMAIL_BLOCKED` and the dashboard shows the reason. The rest of the team is unaffected.
+
+CLIENT quotas and blocks are enforced in every deployment mode, including `NEXT_PUBLIC_IS_CLOUD=false`; only team-wide quotas remain cloud-only. `adminProcedure` never admits CLIENT or MEMBER users, even when self-hosted.
+
+- **Files:** `apps/web/src/server/service/plan-activation-service.ts`, `apps/web/src/server/jobs/plan-expiry-job.ts`, `apps/web/src/server/api/routers/admin-clients.ts`, `apps/web/src/app/(dashboard)/admin/clients/page.tsx`, plan lifecycle emails in `apps/web/src/server/mailer.ts`.
+- **Migration:** `20260907120000_activation_expiry_and_user_block` (enum value `EXPIRED`, reminder timestamps, `User.isBlocked`).
+
+### 5. Deployment notes
 
 If you self-host the SMTP relay on a platform that does rolling updates (e.g. EasyPanel with `zeroDowntime: true`), make sure **zero-downtime is disabled for the SMTP service**. SMTP servers bind fixed TCP ports (465, 587) which cannot be held by two containers simultaneously, so a rolling update will always fail health-check and roll back to the old container. With zero-downtime off the old container stops first and the new one starts cleanly.
 

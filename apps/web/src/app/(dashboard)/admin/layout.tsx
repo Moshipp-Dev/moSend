@@ -15,6 +15,9 @@ export default function AdminLayout({
         <SettingsNavButton href="/admin/metrics">
           Métricas
         </SettingsNavButton>
+        <SettingsNavButton href="/admin/clients">
+          Clientes
+        </SettingsNavButton>
         <SettingsNavButton href="/admin/activations">
           Activaciones
         </SettingsNavButton>
