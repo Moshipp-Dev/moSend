@@ -1,5 +1,3 @@
-import { initDomainVerificationJob } from "~/server/jobs/domain-verification-job";
-import { initPlanExpiryJob } from "~/server/jobs/plan-expiry-job";
 import { isCloud, isEmailCleanupEnabled } from "~/utils/common";
 
 let initialized = false;
@@ -27,6 +25,14 @@ export async function register() {
     }
 
     if (process.env.REDIS_URL) {
+      const { initDomainVerificationJob } = await import(
+        "~/server/jobs/domain-verification-job"
+      );
+
+      const { initPlanExpiryJob } = await import(
+        "~/server/jobs/plan-expiry-job"
+      );
+
       await initDomainVerificationJob();
       await initPlanExpiryJob();
     }
