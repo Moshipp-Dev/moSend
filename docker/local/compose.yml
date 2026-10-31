@@ -29,20 +29,52 @@ services:
       - cache:/data
     command: ["redis-server", "--maxmemory-policy", "noeviction"]
 
-  minio:
-    image: minio/minio
-    container_name: usesend-storage-local
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    container_name: usesend-rustfs-local
     restart: unless-stopped
     ports:
-      - "9001:9001"
-      - "9002:9002"
-    volumes:
-      - storage:/data
+      - 127.0.0.1:9002:9000
+      - 127.0.0.1:9001:9001
     environment:
-      MINIO_ROOT_USER: usesend
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
-    entrypoint: sh
-    command: -c 'mkdir -p /data/usesend && minio server /data --console-address ":9001" --address ":9002"'
+      RUSTFS_ACCESS_KEY: usesend
+      RUSTFS_SECRET_KEY: ${MINIO_PASSWORD}
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_OBS_LOGGER_LEVEL: error
+    volumes:
+      - rustfs:/data
+    command: ["/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  rustfs-init:
+    image: amazon/aws-cli:2.34.30
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    environment:
+      AWS_ACCESS_KEY_ID: usesend
+      AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+      BUCKET: usesend
+      APP_ORIGIN: http://localhost:3010
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    command:
+      - |
+        s3="aws --endpoint-url http://rustfs:9000 s3api"
+        $$s3 head-bucket --bucket "$$BUCKET" >/dev/null 2>&1 || $$s3 create-bucket --bucket "$$BUCKET"
+        $$s3 put-bucket-cors --bucket "$$BUCKET" --cors-configuration \
+          '{"CORSRules":[{"AllowedOrigins":["'"$$APP_ORIGIN"'"],"AllowedMethods":["GET","HEAD","PUT"],"AllowedHeaders":["*"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]}'
+        $$s3 put-bucket-policy --bucket "$$BUCKET" --policy \
+          '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::'"$$BUCKET"'/*"]}]}'
 
   local-ses-sns:
     image: usesend/local-ses-sns:latest
@@ -81,11 +113,12 @@ services:
       # Self-hosted mode (no cloud features/limits)
       - NEXT_PUBLIC_IS_CLOUD=false
       - REDIS_URL=redis://redis:6379
-      # Minio as S3-compatible storage (local file storage)
+      # RustFS as S3-compatible storage (local file storage). Browsers upload to
+      # the API URL directly, so it has to be the published host port.
       - S3_COMPATIBLE_ACCESS_KEY=usesend
       - S3_COMPATIBLE_SECRET_KEY=${MINIO_PASSWORD}
-      - S3_COMPATIBLE_API_URL=http://minio:9002
-      - S3_COMPATIBLE_PUBLIC_URL=http://localhost:9002
+      - S3_COMPATIBLE_API_URL=http://localhost:9002
+      - S3_COMPATIBLE_PUBLIC_URL=http://localhost:9002/usesend
       - S3_COMPATIBLE_BUCKET=usesend
     depends_on:
       postgres:
@@ -94,8 +127,10 @@ services:
         condition: service_started
       local-ses-sns:
         condition: service_started
+      rustfs-init:
+        condition: service_completed_successfully
 
 volumes:
   database:
   cache:
-  storage:
+  rustfs:
