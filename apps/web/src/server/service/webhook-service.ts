@@ -18,6 +18,12 @@ import {
 import { createWorkerHandler, TeamJob } from "../queue/bullmq-context";
 import { logger } from "../logger/log";
 import { LimitService } from "./limit-service";
+import { withPlanLimitLock } from "./plan-limit-lock";
+import {
+  assertOutboundUrlAllowed,
+  fetchOutbound,
+  OutboundUrlNotAllowedError,
+} from "../utils/outbound-url-guard";
 import { UnsendApiError } from "../public-api/api-error";
 
 const WEBHOOK_DISPATCH_CONCURRENCY = 25;
@@ -247,7 +253,15 @@ export class WebhookService {
     return webhook;
   }
 
-  public static async createWebhook(params: {
+  public static async createWebhook(
+    params: Parameters<typeof WebhookService.createWebhookUnlocked>[0],
+  ) {
+    return withPlanLimitLock(params.teamId, "webhook", () =>
+      WebhookService.createWebhookUnlocked(params),
+    );
+  }
+
+  private static async createWebhookUnlocked(params: {
     teamId: number;
     userId: number;
     url: string;
@@ -266,6 +280,8 @@ export class WebhookService {
         message: reason ?? "Webhook limit reached",
       });
     }
+
+    await WebhookService.assertAllowedWebhookUrl(params.url);
 
     const normalizedDomainIds = WebhookService.normalizeDomainIds(
       params.domainIds,
@@ -315,6 +331,10 @@ export class WebhookService {
       });
     }
 
+    if (params.url !== undefined) {
+      await WebhookService.assertAllowedWebhookUrl(params.url);
+    }
+
     const secret =
       params.rotateSecret === true
         ? WebhookService.generateSecret()
@@ -345,6 +365,20 @@ export class WebhookService {
         secret: secret ?? webhook.secret,
       },
     });
+  }
+
+  private static async assertAllowedWebhookUrl(url: string) {
+    try {
+      await assertOutboundUrlAllowed(url);
+    } catch (error) {
+      if (error instanceof OutboundUrlNotAllowedError) {
+        throw new UnsendApiError({
+          code: "BAD_REQUEST",
+          message: `Webhook ${error.message}`,
+        });
+      }
+      throw error;
+    }
   }
 
   private static normalizeDomainIds(domainIds?: number[]) {
@@ -800,11 +834,10 @@ async function postWebhook(params: {
   const start = Date.now();
 
   try {
-    const response = await fetch(params.url, {
+    const response = await fetchOutbound(params.url, {
       method: "POST",
       headers,
       body: stringBody,
-      redirect: "manual",
       signal: controller.signal,
     });
 
@@ -829,7 +862,10 @@ async function postWebhook(params: {
     if (error instanceof WebhookHttpError) {
       throw error;
     }
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (error instanceof OutboundUrlNotAllowedError) {
+      throw error;
+    }
+    if (controller.signal.aborted) {
       throw new WebhookHttpError(
         "Webhook request timed out",
         null,
@@ -845,6 +881,8 @@ async function postWebhook(params: {
     );
   } finally {
     clearTimeout(timeout);
+    // Releases the connection when the response body was not fully read.
+    controller.abort();
   }
 }
 

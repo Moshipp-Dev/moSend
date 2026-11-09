@@ -1,12 +1,12 @@
 import { SuppressionReason } from "@prisma/client";
 import { z } from "zod";
 
-import { createTRPCRouter, teamProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, teamMemberProcedure } from "~/server/api/trpc";
 import { SuppressionService } from "~/server/service/suppression-service";
 
 export const suppressionRouter = createTRPCRouter({
   // Get suppression list for team with pagination
-  getSuppressions: teamProcedure
+  getSuppressions: teamMemberProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -44,7 +44,7 @@ export const suppressionRouter = createTRPCRouter({
     }),
 
   // Add manual suppression
-  addSuppression: teamProcedure
+  addSuppression: teamMemberProcedure
     .input(
       z.object({
         email: z.string().email(),
@@ -62,7 +62,7 @@ export const suppressionRouter = createTRPCRouter({
     }),
 
   // Remove suppression
-  removeSuppression: teamProcedure
+  removeSuppression: teamMemberProcedure
     .input(
       z.object({
         email: z.string().email(),
@@ -73,7 +73,7 @@ export const suppressionRouter = createTRPCRouter({
     }),
 
   // Bulk add suppressions
-  bulkAddSuppressions: teamProcedure
+  bulkAddSuppressions: teamMemberProcedure
     .input(
       z.object({
         emails: z.array(z.string().email()).max(1000),
@@ -91,7 +91,7 @@ export const suppressionRouter = createTRPCRouter({
     }),
 
   // Check if email is suppressed
-  checkSuppression: teamProcedure
+  checkSuppression: teamMemberProcedure
     .input(
       z.object({
         email: z.string().email(),
@@ -102,7 +102,7 @@ export const suppressionRouter = createTRPCRouter({
     }),
 
   // Check multiple emails for suppression
-  checkMultipleSuppressions: teamProcedure
+  checkMultipleSuppressions: teamMemberProcedure
     .input(
       z.object({
         emails: z.array(z.string().email()).max(100),
@@ -113,12 +113,12 @@ export const suppressionRouter = createTRPCRouter({
     }),
 
   // Get suppression stats
-  getSuppressionStats: teamProcedure.query(async ({ ctx }) => {
+  getSuppressionStats: teamMemberProcedure.query(async ({ ctx }) => {
     return SuppressionService.getSuppressionStats(ctx.team.id);
   }),
 
   // Export suppressions (for download functionality)
-  exportSuppressions: teamProcedure
+  exportSuppressions: teamMemberProcedure
     .input(
       z.object({
         reason: z.nativeEnum(SuppressionReason).optional().nullable(),

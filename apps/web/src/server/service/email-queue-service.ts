@@ -406,7 +406,11 @@ async function executeEmail(job: QueueEmailJob) {
 
   try {
     // Check limits right before sending (cloud-only)
-    const limitCheck = await LimitService.checkEmailLimit(email.teamId, email.domainId);
+    const limitCheck = await LimitService.checkEmailLimit(
+      email.teamId,
+      email.domainId,
+      email.to,
+    );
     logger.info({ limitCheck }, `[EmailQueueService]: Limit check`);
     if (limitCheck.isLimitReached) {
       await db.emailEvent.create({

@@ -81,6 +81,8 @@ export default function AdminWaitlistPage() {
   const rejectWaitlist = api.admin.rejectWaitlistUser.useMutation({
     onSuccess: () => {
       toast.success("Correo de rechazo enviado");
+      // Refresh so the application shows as rejected.
+      if (userResult?.email) findUser.mutate({ email: userResult.email });
     },
     onError: (error) => {
       toast.error(error.message ?? "No se pudo enviar el correo de rechazo");
@@ -115,7 +117,11 @@ export default function AdminWaitlistPage() {
     <div className="space-y-6">
       <div className="rounded-lg border p-6 shadow-sm">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-4"
+            noValidate
+          >
             <FormField
               control={form.control}
               name="email"
@@ -160,7 +166,9 @@ export default function AdminWaitlistPage() {
               <p className="text-sm text-muted-foreground">Correo</p>
               <p className="text-base font-medium">{userResult.email}</p>
             </div>
-            <Badge variant={userResult.isWaitlisted ? "destructive" : "outline"}>
+            <Badge
+              variant={userResult.isWaitlisted ? "destructive" : "outline"}
+            >
               {userResult.isWaitlisted ? "En lista de espera" : "Activo"}
             </Badge>
           </div>
@@ -178,6 +186,76 @@ export default function AdminWaitlistPage() {
                 })}
               </p>
             </div>
+          </div>
+
+          <div className="space-y-3 border-t pt-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium">Solicitud</p>
+              {userResult.waitlistApplication ? (
+                <Badge variant="outline">
+                  {
+                    {
+                      PENDING: "pendiente",
+                      APPROVED: "aprobada",
+                      REJECTED: "rechazada",
+                    }[userResult.waitlistApplication.status]
+                  }{" "}
+                  · enviada{" "}
+                  {formatDistanceToNow(
+                    new Date(userResult.waitlistApplication.updatedAt),
+                    { addSuffix: true },
+                  )}
+                </Badge>
+              ) : null}
+            </div>
+            {userResult.waitlistApplication ? (
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-muted-foreground">Sitio web</dt>
+                  <dd>
+                    <a
+                      href={userResult.waitlistApplication.website}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="underline"
+                    >
+                      {userResult.waitlistApplication.website}
+                    </a>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Tipos de correo</dt>
+                  <dd className="capitalize">
+                    {userResult.waitlistApplication.emailTypes.join(", ")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Volumen</dt>
+                  <dd className="whitespace-pre-wrap">
+                    {userResult.waitlistApplication.emailVolume}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">
+                    Cómo se suscriben a su lista
+                  </dt>
+                  <dd className="whitespace-pre-wrap">
+                    {userResult.waitlistApplication.listSource}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">Qué van a enviar</dt>
+                  <dd className="whitespace-pre-wrap">
+                    {userResult.waitlistApplication.description}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-muted-foreground">
+                Aún no hay solicitud. No ha llenado el formulario de la lista de
+                espera.
+              </p>
+            )}
           </div>
 
           <div className="space-y-4 border-t pt-4">
@@ -204,7 +282,8 @@ export default function AdminWaitlistPage() {
               <div>
                 <p className="text-sm font-medium">Rechazar solicitud de lista de espera</p>
                 <p className="text-sm text-muted-foreground">
-                  Envía al solicitante un correo de rechazo sin cambiar su estado en la lista de espera.
+                  Envía al solicitante un correo de rechazo y marca su
+                  solicitud como rechazada. Sigue en la lista de espera.
                 </p>
               </div>
               <Button

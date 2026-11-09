@@ -19,6 +19,21 @@ export interface Caller {
 }
 
 export class LimitService {
+  /** True when every recipient is a member of the team (a test send to themselves). */
+  static async onlyToTeamMembers(teamId: number, recipients: string[]) {
+    if (recipients.length === 0) return false;
+    const members = await db.teamUser.findMany({
+      where: { teamId },
+      select: { user: { select: { email: true } } },
+    });
+    const memberEmails = new Set(
+      members
+        .map((member) => member.user.email?.trim().toLowerCase())
+        .filter((email): email is string => Boolean(email)),
+    );
+    return recipients.every((to) => memberEmails.has(to.trim().toLowerCase()));
+  }
+
   // When a CLIENT calls, the quota is computed against their own
   // pricing plan and the domains they personally hold access to
   // (ClientDomainAccess). ADMIN/MEMBER fall back to team-wide counting.
@@ -144,6 +159,7 @@ export class LimitService {
   static async checkEmailLimit(
     teamId: number,
     domainId?: number | null,
+    recipients: string[] = [],
   ): Promise<{
     isLimitReached: boolean;
     limit: number;
@@ -181,6 +197,21 @@ export class LimitService {
 
     const plan = await PlanService.getPlanForTeam(teamId);
     const isFreeTier = plan?.key === "free" || !plan;
+
+    // Teams created after paid-only signups need to pay to send, except test
+    // emails to their own members. Strict `=== false` so a team cached before
+    // this field existed isn't caught.
+    if (
+      isFreeTier &&
+      team.freePlanAllowed === false &&
+      !(await LimitService.onlyToTeamMembers(teamId, recipients))
+    ) {
+      return {
+        isLimitReached: true,
+        limit: 0,
+        reason: LimitReason.EMAIL_PLAN_REQUIRED,
+      };
+    }
 
     const usage = await withCache(
       `usage:this-month:${teamId}`,

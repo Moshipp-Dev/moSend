@@ -38,6 +38,8 @@ export const UpgradeModal = () => {
                   "Has alcanzado el límite de miembros del equipo de tu plan actual.",
                 [LimitReason.WEBHOOK]:
                   "Has alcanzado el límite de webhooks de tu plan actual.",
+                [LimitReason.EMAIL_PLAN_REQUIRED]:
+                  "Necesitas un plan de pago para empezar a enviar.",
                 [LimitReason.EMAIL_BLOCKED]:
                   "Has alcanzado el límite de envío de correos de tu plan actual.",
                 [LimitReason.EMAIL_DAILY_LIMIT_REACHED]:

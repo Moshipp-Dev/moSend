@@ -4,7 +4,7 @@ import { EmailRenderer } from "@usesend/email-editor/src/renderer";
 import { z } from "zod";
 import { env } from "~/env";
 import {
-  teamProcedure,
+  teamMemberProcedure,
   createTRPCRouter,
   campaignProcedure,
   publicProcedure,
@@ -21,7 +21,7 @@ import {
 const statuses = Object.values(CampaignStatus) as [CampaignStatus];
 
 export const campaignRouter = createTRPCRouter({
-  getCampaigns: teamProcedure
+  getCampaigns: teamMemberProcedure
     .input(
       z.object({
         page: z.number().optional(),
@@ -89,7 +89,7 @@ export const campaignRouter = createTRPCRouter({
       return { campaigns, totalPage: Math.ceil(count / limit) };
     }),
 
-  createCampaign: teamProcedure
+  createCampaign: teamMemberProcedure
     .input(
       z.object({
         name: z.string(),

@@ -16,6 +16,7 @@ import {
   type DomainWebhookEventType,
 } from "@usesend/lib/src/webhook/webhook-events";
 import { LimitService } from "./limit-service";
+import { withPlanLimitLock } from "./plan-limit-lock";
 import type { DomainDnsRecord } from "~/types/domain";
 import { parseFromAddress } from "~/server/utils/from-address";
 import { WebhookService } from "./webhook-service";
@@ -385,6 +386,18 @@ export async function createDomain(
   sesTenantId?: string,
   creator?: { userId: number; isClient: boolean },
 ) {
+  return withPlanLimitLock(teamId, "domain", () =>
+    createDomainUnlocked(teamId, name, region, sesTenantId, creator),
+  );
+}
+
+async function createDomainUnlocked(
+  teamId: number,
+  name: string,
+  region: string,
+  sesTenantId?: string,
+  creator?: { userId: number; isClient: boolean },
+) {
   const domainStr = tldts.getDomain(name);
 
   logger.info({ domainStr, name, region }, "Creating domain");
@@ -637,7 +650,13 @@ export async function deleteDomain(id: number) {
     throw new Error("Error in deleting domain");
   }
 
-  const deletedRecord = await db.domain.delete({ where: { id } });
+  // API keys restricted to this domain would otherwise fall back to
+  // domainId = null (onDelete: SetNull) and become unrestricted team keys.
+  // Revoke them together with the domain instead.
+  const [, deletedRecord] = await db.$transaction([
+    db.apiKey.deleteMany({ where: { domainId: id } }),
+    db.domain.delete({ where: { id } }),
+  ]);
   try {
     await clearDomainVerificationState(id);
   } catch (error) {

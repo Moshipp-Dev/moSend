@@ -10,11 +10,13 @@ import GitHubProvider from "next-auth/providers/github";
 import EmailProvider from "next-auth/providers/email";
 import GoogleProvider from "next-auth/providers/google";
 import { Provider } from "next-auth/providers/index";
+import { randomInt } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 
 import { sendSignUpEmail } from "~/server/mailer";
 import { env } from "~/env";
 import { db } from "~/server/db";
+import { isPlatformAdmin } from "~/server/platform-admin";
 
 // HS256-signed JWT shared with the portal (Auth.js v5) for cross-app SSO.
 // Both apps MUST use this exact encode/decode so cookies are interoperable.
@@ -211,7 +213,12 @@ function getProviders() {
           await sendSignUpEmail(email, token, url);
         },
         async generateVerificationToken() {
-          return Math.random().toString(36).substring(2, 7).toLowerCase();
+          // 5 characters to match the login OTP input; drawn from a CSPRNG.
+          const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+          return Array.from(
+            { length: 5 },
+            () => alphabet[randomInt(alphabet.length)],
+          ).join("");
         },
       }),
     );
@@ -281,8 +288,10 @@ export const authOptions: NextAuthOptions = {
           if (dbUser) {
             token.mosendUid = dbUser.id;
             token.isBetaUser = dbUser.isBetaUser;
-            token.isAdmin =
-              dbUser.isAdmin || dbUser.email === env.ADMIN_EMAIL;
+            token.isAdmin = await isPlatformAdmin({
+              id: dbUser.id,
+              email: dbUser.email,
+            });
             token.isWaitlisted = dbUser.isWaitlisted;
             token.email = dbUser.email ?? token.email;
             token.name = dbUser.name ?? token.name;

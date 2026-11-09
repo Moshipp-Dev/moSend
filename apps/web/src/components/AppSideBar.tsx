@@ -125,19 +125,17 @@ const settingsItems = [
     icon: Cog,
     clientOnly: true,
   },
-  // Admin item shows if user is admin OR if it's self-hosted
   {
     title: "Administración",
     url: "/admin",
     icon: Server,
     isAdmin: true,
-    isSelfHosted: true,
   },
 ];
 
 export function AppSidebar() {
   const { data: session } = useSession();
-  const { currentIsClient, currentIsAdmin } = useTeam();
+  const { currentIsClient } = useTeam();
   const showFeedback = isCloud();
 
   const pathname = usePathname();
@@ -228,25 +226,8 @@ export function AppSidebar() {
                   return null;
                 }
 
-                // Special case for Admin item: platform admins always; in
-                // self-hosted mode only team ADMINs act as operators (matches
-                // adminProcedure on the server).
-                if (item.isAdmin && item.isSelfHosted) {
-                  if (
-                    !session?.user.isAdmin &&
-                    !(isSelfHosted() && currentIsAdmin)
-                  ) {
-                    return null;
-                  }
-                } else {
-                  // Regular admin-only items
-                  if (item.isAdmin && !session?.user.isAdmin) {
-                    return null;
-                  }
-                  // Regular self-hosted-only items
-                  if (item.isSelfHosted && !isSelfHosted()) {
-                    return null;
-                  }
+                if (item.isAdmin && !session?.user.isAdmin) {
+                  return null;
                 }
                 return (
                   <SidebarMenuItem key={item.title}>

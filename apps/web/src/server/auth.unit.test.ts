@@ -219,6 +219,53 @@ describe("authOptions", () => {
     });
   });
 
+  describe("token admin flag", () => {
+    // This fork keeps sessions in a JWT shared with the portal, so the admin
+    // flag is resolved in the jwt callback, not in the session callback.
+    const jwtCallback = authOptions.callbacks!.jwt!;
+
+    async function getIsAdmin(user: { id: number; email: string }) {
+      mocks.userFindFirst.mockImplementation(async (args: any) =>
+        args?.where?.email
+          ? { ...newUser, ...user, isAdmin: false }
+          : { id: 1 },
+      );
+      const token: any = await jwtCallback({
+        token: { email: user.email },
+      } as any);
+
+      return token.isAdmin;
+    }
+
+    it("marks the first self-hosted user as admin", async () => {
+      mocks.env.NEXT_PUBLIC_IS_CLOUD = false;
+
+      await expect(
+        getIsAdmin({ id: 1, email: "owner@example.com" }),
+      ).resolves.toBe(true);
+      await expect(
+        getIsAdmin({ id: 2, email: "member@example.com" }),
+      ).resolves.toBe(false);
+    });
+
+    it("does not mark cloud users as admin without ADMIN_EMAIL", async () => {
+      mocks.env.NEXT_PUBLIC_IS_CLOUD = true;
+
+      await expect(
+        getIsAdmin({ id: 1, email: "owner@example.com" }),
+      ).resolves.toBe(false);
+    });
+
+    it("marks users with the isAdmin flag as admin", async () => {
+      mocks.env.NEXT_PUBLIC_IS_CLOUD = true;
+      mocks.userFindUnique.mockResolvedValue({ isAdmin: true });
+
+      await expect(
+        getIsAdmin({ id: 5, email: "flagged@example.com" }),
+      ).resolves.toBe(true);
+    });
+  });
+
   describe("adapter user creation", () => {
     const createUser = authOptions.adapter?.createUser;
 

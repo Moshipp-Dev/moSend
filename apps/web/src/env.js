@@ -39,6 +39,9 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     AWS_SES_ENDPOINT: z.string().optional(),
     AWS_SNS_ENDPOINT: z.string().optional(),
+    SNS_SIGNATURE_VERIFICATION: z
+      .enum(["enforce", "log-only"])
+      .default("enforce"),
     AWS_DEFAULT_REGION: z
       .string()
       .trim()
@@ -71,6 +74,13 @@ export const env = createEnv({
     SMTP_HOST: z.string().default("smtp.usesend.com"),
     SMTP_USER: z.string().default("usesend"),
     CONTACT_BOOK_ID: z.string().optional(),
+    // Lets webhooks reach private, loopback, and link-local addresses. Blocked
+    // by default in cloud; allowed by default when self-hosted so webhooks to
+    // internal services (e.g. http://n8n:5678) keep working.
+    WEBHOOK_ALLOW_PRIVATE_URLS: z
+      .string()
+      .default(process.env.NEXT_PUBLIC_IS_CLOUD === "true" ? "false" : "true")
+      .transform((str) => str === "true"),
     EMAIL_CLEANUP_DAYS: z
         .string()
         .optional()
@@ -118,6 +128,7 @@ export const env = createEnv({
     AWS_DEFAULT_REGION: process.env.AWS_DEFAULT_REGION,
     AWS_SES_ENDPOINT: process.env.AWS_SES_ENDPOINT,
     AWS_SNS_ENDPOINT: process.env.AWS_SNS_ENDPOINT,
+    SNS_SIGNATURE_VERIFICATION: process.env.SNS_SIGNATURE_VERIFICATION,
     API_RATE_LIMIT: process.env.API_RATE_LIMIT,
     AUTH_EMAIL_RATE_LIMIT: process.env.AUTH_EMAIL_RATE_LIMIT,
     NEXT_PUBLIC_IS_CLOUD: process.env.NEXT_PUBLIC_IS_CLOUD,
@@ -142,6 +153,8 @@ export const env = createEnv({
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_USER: process.env.SMTP_USER,
     CONTACT_BOOK_ID: process.env.CONTACT_BOOK_ID,
+    WEBHOOK_ALLOW_PRIVATE_URLS:
+      process.env.WEBHOOK_ALLOW_PRIVATE_URLS,
     EMAIL_CLEANUP_DAYS: process.env.EMAIL_CLEANUP_DAYS,
     ADMIN_CREDS_ENCRYPTION_KEY: process.env.ADMIN_CREDS_ENCRYPTION_KEY,
     AUTH_COOKIE_DOMAIN: process.env.AUTH_COOKIE_DOMAIN,

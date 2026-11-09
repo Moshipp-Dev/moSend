@@ -5,7 +5,7 @@ const { mockDb, mockPlan, mockTeamService, mockUsage } = vi.hoisted(() => ({
   mockDb: {
     domain: { count: vi.fn() },
     contactBook: { count: vi.fn() },
-    teamUser: { count: vi.fn() },
+    teamUser: { count: vi.fn(), findMany: vi.fn() },
     webhook: { count: vi.fn() },
     user: { findUnique: vi.fn() },
     clientDomainAccess: { findFirst: vi.fn(), count: vi.fn() },
@@ -218,6 +218,71 @@ describe("LimitService", () => {
       const r = await LimitService.checkEmailLimit(1);
       expect(r.isLimitReached).toBe(true);
       expect(r.reason).toBe(LimitReason.EMAIL_FREE_PLAN_MONTHLY_LIMIT_REACHED);
+    });
+  });
+  describe("checkEmailLimit paid-only signups (cloud)", () => {
+    const freePlan = { key: "free", emailsPerDay: 100, emailsPerMonth: 3000 };
+
+    beforeEach(() => {
+      mockUsage.mockResolvedValue({ day: [{ sent: 1 }], month: [{ sent: 1 }] });
+      mockDb.teamUser.findMany.mockResolvedValue([
+        { user: { email: "Sam@acme.com" } },
+        { user: { email: "lee@acme.com" } },
+      ]);
+    });
+
+    function newTeam(overrides: Record<string, unknown> = {}) {
+      return {
+        isBlocked: false,
+        isActive: true,
+        dailyEmailLimit: 100,
+        freePlanAllowed: false,
+        ...overrides,
+      };
+    }
+
+    it("stops a new free team emailing anyone outside the team", async () => {
+      mockTeamService.getTeamCached.mockResolvedValue(newTeam());
+      mockPlan.getPlanForTeam.mockResolvedValue(freePlan);
+
+      const r = await LimitService.checkEmailLimit(1, null, [
+        "sam@acme.com",
+        "someone@else.com",
+      ]);
+      expect(r.reason).toBe(LimitReason.EMAIL_PLAN_REQUIRED);
+    });
+
+    it("lets a new free team send test emails to its own members", async () => {
+      mockTeamService.getTeamCached.mockResolvedValue(newTeam());
+      mockPlan.getPlanForTeam.mockResolvedValue(freePlan);
+
+      const r = await LimitService.checkEmailLimit(1, null, [
+        "sam@acme.com",
+        "LEE@acme.com",
+      ]);
+      expect(r.isLimitReached).toBe(false);
+    });
+
+    it("lets existing free teams keep sending", async () => {
+      mockTeamService.getTeamCached.mockResolvedValue(
+        newTeam({ freePlanAllowed: true }),
+      );
+      mockPlan.getPlanForTeam.mockResolvedValue(freePlan);
+
+      const r = await LimitService.checkEmailLimit(1, null, ["a@b.com"]);
+      expect(r.isLimitReached).toBe(false);
+    });
+
+    it("lets a new team on a paid plan send", async () => {
+      mockTeamService.getTeamCached.mockResolvedValue(newTeam());
+      mockPlan.getPlanForTeam.mockResolvedValue({
+        key: "chispa",
+        emailsPerDay: 50,
+        emailsPerMonth: 1000,
+      });
+
+      const r = await LimitService.checkEmailLimit(1, null, ["a@b.com"]);
+      expect(r.isLimitReached).toBe(false);
     });
   });
 });

@@ -4,7 +4,7 @@ import { EmailRenderer } from "@usesend/email-editor/src/renderer";
 import { z } from "zod";
 import { env } from "~/env";
 import {
-  teamProcedure,
+  teamMemberProcedure,
   createTRPCRouter,
   templateProcedure,
 } from "~/server/api/trpc";
@@ -15,7 +15,7 @@ import {
 } from "~/server/service/storage-service";
 
 export const templateRouter = createTRPCRouter({
-  getTemplates: teamProcedure
+  getTemplates: teamMemberProcedure
     .input(
       z.object({
         page: z.number().optional(),
@@ -54,7 +54,7 @@ export const templateRouter = createTRPCRouter({
       return { templates, totalPage: Math.ceil(count / limit) };
     }),
 
-  createTemplate: teamProcedure
+  createTemplate: teamMemberProcedure
     .input(
       z.object({
         name: z.string(),

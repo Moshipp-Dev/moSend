@@ -113,4 +113,25 @@ describe("webhookRouter domain filters", () => {
       secret: undefined,
     });
   });
+  it("rejects CLIENT users, who share the operator's team", async () => {
+    mockDb.teamUser.findFirst.mockResolvedValue({
+      teamId: 10,
+      userId: 42,
+      role: "CLIENT",
+      team: { id: 10, name: "Acme" },
+    });
+    const caller = createCaller(getContext());
+
+    await expect(
+      caller.create({
+        url: "https://example.com/webhook",
+        eventTypes: ["email.sent"],
+      }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.list()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    expect(mockWebhookService.createWebhook).not.toHaveBeenCalled();
+    expect(mockWebhookService.listWebhooks).not.toHaveBeenCalled();
+  });
 });

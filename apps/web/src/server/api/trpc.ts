@@ -10,10 +10,10 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { z, ZodError } from "zod";
-import { env } from "~/env";
 
 import { getServerAuthSession } from "~/server/auth";
 import { db } from "~/server/db";
+import { isPlatformAdmin } from "~/server/platform-admin";
 import { getChildLogger, logger, withLogger } from "../logger/log";
 import { randomUUID } from "crypto";
 
@@ -165,7 +165,9 @@ export const teamAdminProcedure = teamProcedure.use(async ({ ctx, next }) => {
   return next();
 });
 
-// Blocks CLIENT role — use for operations that MEMBER and ADMIN can do but CLIENT cannot
+// Blocks CLIENT role — use for operations that MEMBER and ADMIN can do but CLIENT cannot.
+// CLIENTs share the operator's team, so any team-wide data (webhooks,
+// suppressions, contacts, campaigns, templates) must sit behind this.
 export const teamMemberProcedure = teamProcedure.use(async ({ ctx, next }) => {
   if (ctx.teamUser.role === "CLIENT") {
     throw new TRPCError({
@@ -225,7 +227,7 @@ export const apiKeyProcedure = teamProcedure
     return next({ ctx: { ...ctx, apiKey } });
   });
 
-export const contactBookProcedure = teamProcedure
+export const contactBookProcedure = teamMemberProcedure
   .input(
     z.object({
       contactBookId: z.string(),
@@ -245,7 +247,7 @@ export const contactBookProcedure = teamProcedure
     return next({ ctx: { ...ctx, contactBook } });
   });
 
-export const campaignProcedure = teamProcedure
+export const campaignProcedure = teamMemberProcedure
   .input(
     z.object({
       campaignId: z.string(),
@@ -265,7 +267,7 @@ export const campaignProcedure = teamProcedure
     return next({ ctx: { ...ctx, campaign } });
   });
 
-export const templateProcedure = teamProcedure
+export const templateProcedure = teamMemberProcedure
   .input(
     z.object({
       templateId: z.string(),
@@ -286,23 +288,11 @@ export const templateProcedure = teamProcedure
   });
 
 /**
- * Platform operator guard. Cloud mode requires the User.isAdmin flag. In
- * self-hosted mode the operator is whoever holds the ADMIN role in a team;
- * CLIENT and MEMBER users are never operators, because this fork bills
- * CLIENTs individually and they must not reach plan/activation routers.
+ * Platform operator guard, see `isPlatformAdmin`. Team roles never grant it:
+ * the portal provisions every customer as ADMIN of their own team.
  */
 export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  if (ctx.session.user.isAdmin) {
-    return next();
-  }
-  if (env.NEXT_PUBLIC_IS_CLOUD) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
-  }
-  const operatorMembership = await db.teamUser.findFirst({
-    where: { userId: ctx.session.user.id, role: "ADMIN" },
-    select: { teamId: true },
-  });
-  if (!operatorMembership) {
+  if (!(await isPlatformAdmin(ctx.session.user))) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
   return next();

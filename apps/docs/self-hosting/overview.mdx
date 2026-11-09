@@ -135,6 +135,26 @@ docker rm -f usesend-minio-migrate
 This uses the `minio/minio` image already on your server. If your public storage URL stays the same, images in emails you already sent keep loading. Once you've checked them, you can remove the old volume with `docker volume rm usesend-prod_storage`.
 
   </Step>
+  <Step title="Webhooks to internal hosts (optional)">
+  When self-hosted, webhooks can be sent to services on your internal network, such as `http://n8n:5678` on the same Docker network. Anyone who can create a webhook can then make the server send requests to private, loopback, and link-local addresses, including `http://localhost` and cloud metadata at `169.254.169.254`.
+
+If you don't trust every user who can create webhooks on your instance, only allow publicly reachable webhook URLs:
+
+```env
+WEBHOOK_ALLOW_PRIVATE_URLS=false
+```
+
+With this set, webhook URLs that point at or resolve to a non-public address are rejected when saved, and deliveries to them fail. Redirects from webhook endpoints are never followed.
+
+  </Step>
+  <Step title="Instance admin (optional)">
+  The instance admin manages instance-wide settings such as SES configurations from the Admin page. By default this is the first user who signed up. To choose a different user, set `ADMIN_EMAIL` to their email address. When it is set, only that user is the admin, and the address must match their account email exactly. Other users on the instance no longer see the Admin page. If no account has that exact email, the first user who signed up stays the admin and a warning is logged.
+
+```env
+ADMIN_EMAIL="you@example.com"
+```
+
+  </Step>
 </Steps>
 
 ## Step 2: Setting up the app
@@ -160,6 +180,10 @@ Once you log in to useSend, it will prompt you add SES configuration.
 - You don't need to update the send rate, it's automatically based on your account.
 
 ![github app](/images/ses-settings/add-ses-settings.png)
+
+<Note>
+  useSend checks the AWS signature on every SNS message it receives at the callback URL and rejects any that fail. If email statuses stop updating past "Sent", look for `Rejected SNS message` in the logs. Setting `SNS_SIGNATURE_VERIFICATION=log-only` accepts those messages while you investigate. You also need `log-only` (together with `AWS_SNS_ENDPOINT`) if you use an SNS emulator such as LocalStack instead of AWS, because emulators don't sign their messages.
+</Note>
 
 ## Step 4: Getting out of sandbox mode
 

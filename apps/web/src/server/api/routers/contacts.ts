@@ -5,19 +5,19 @@ import { z } from "zod";
 import {
   contactBookProcedure,
   createTRPCRouter,
-  teamProcedure,
+  teamMemberProcedure,
 } from "~/server/api/trpc";
 import * as contactService from "~/server/service/contact-service";
 import * as contactBookService from "~/server/service/contact-book-service";
 
 export const contactsRouter = createTRPCRouter({
-  getContactBooks: teamProcedure
+  getContactBooks: teamMemberProcedure
     .input(z.object({ search: z.string().optional() }))
     .query(async ({ ctx: { team }, input }) => {
       return contactBookService.getContactBooks(team.id, input.search);
     }),
 
-  createContactBook: teamProcedure
+  createContactBook: teamMemberProcedure
     .input(
       z.object({
         name: z.string(),

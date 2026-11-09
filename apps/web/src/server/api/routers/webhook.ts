@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, teamProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, teamMemberProcedure } from "~/server/api/trpc";
 import { WebhookCallStatus, WebhookStatus } from "@prisma/client";
 import { WebhookEvents } from "@usesend/lib/src/webhook/webhook-events";
 import { WebhookService } from "~/server/service/webhook-service";
@@ -7,11 +7,11 @@ import { WebhookService } from "~/server/service/webhook-service";
 const EVENT_TYPES_ENUM = z.enum(WebhookEvents);
 
 export const webhookRouter = createTRPCRouter({
-  list: teamProcedure.query(async ({ ctx }) => {
+  list: teamMemberProcedure.query(async ({ ctx }) => {
     return WebhookService.listWebhooks(ctx.team.id);
   }),
 
-  getById: teamProcedure
+  getById: teamMemberProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return WebhookService.getWebhook({
@@ -20,7 +20,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  create: teamProcedure
+  create: teamMemberProcedure
     .input(
       z.object({
         url: z.string().url(),
@@ -42,7 +42,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  update: teamProcedure
+  update: teamMemberProcedure
     .input(
       z.object({
         id: z.string(),
@@ -67,7 +67,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  setStatus: teamProcedure
+  setStatus: teamMemberProcedure
     .input(
       z.object({
         id: z.string(),
@@ -82,7 +82,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  delete: teamProcedure
+  delete: teamMemberProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return WebhookService.deleteWebhook({
@@ -91,7 +91,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  test: teamProcedure
+  test: teamMemberProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return WebhookService.testWebhook({
@@ -100,7 +100,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  listCalls: teamProcedure
+  listCalls: teamMemberProcedure
     .input(
       z.object({
         webhookId: z.string().optional(),
@@ -119,7 +119,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  getCall: teamProcedure
+  getCall: teamMemberProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return WebhookService.getWebhookCall({
@@ -128,7 +128,7 @@ export const webhookRouter = createTRPCRouter({
       });
     }),
 
-  retryCall: teamProcedure
+  retryCall: teamMemberProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return WebhookService.retryCall({
