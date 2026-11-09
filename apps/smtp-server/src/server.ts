@@ -6,10 +6,12 @@ import { readFileSync } from "fs";
 import { extractForwardedHeaders } from "./email-headers";
 import { resolveRecipients } from "./recipients";
 import { TlsReloader, parseReloadInterval } from "./tls-reloader";
+import { isAllowedAuthUsername, parseAuthUsernames } from "./auth-usernames";
 
 dotenv.config();
 
-const AUTH_USERNAME = process.env.SMTP_AUTH_USERNAME ?? "usesend";
+// Comma-separated list, e.g. "mosend,moshipp".
+const AUTH_USERNAMES = parseAuthUsernames(process.env.SMTP_AUTH_USERNAME);
 const BASE_URL =
   process.env.USESEND_BASE_URL ??
   process.env.UNSEND_BASE_URL ??
@@ -150,7 +152,7 @@ const serverOptions: SMTPServerOptions = {
     });
   },
   onAuth(auth, session: any, callback: (error?: Error, user?: any) => void) {
-    if (auth.username === AUTH_USERNAME && auth.password) {
+    if (isAllowedAuthUsername(AUTH_USERNAMES, auth.username) && auth.password) {
       console.log("Authenticated successfully"); // Debug statement
       callback(undefined, { user: auth.password });
     } else {
